@@ -21,6 +21,7 @@ Parse `$ARGUMENTS` to determine the action:
 | `skip` | Skip the current phase |
 | `pause` | Pause the mission |
 | `resume` | Resume a paused mission |
+| `handoff` | Generate handoff doc and pause for session transfer |
 | `done` | Mark the mission as complete |
 | `reset` | Clear all mission state |
 | *anything else* | Start a new mission with this as the description |
@@ -65,8 +66,11 @@ Present the default model mappings and let the user customize. These control whi
 |------|---------|---------|-----|
 | Explorer | haiku | Architect: 3 parallel discovery agents | Fast, cheap codebase scanning |
 | Planner | opus | Architect: spec writing; Review: plan review | Strong reasoning for planning |
-| Worker | sonnet | Implement: parallel code subagents | Good balance of speed and quality |
-| Reviewer | sonnet | Audit: 3 parallel code reviewers | Thorough but cost-efficient |
+| Worker | sonnet | Implement/Build: parallel code subagents | Good balance of speed and quality |
+| Business Reviewer | sonnet | Audit: spec alignment + business logic | Catches missed requirements |
+| Security Reviewer | sonnet | Audit: injection, auth, secrets, exposure | Dedicated security lens |
+| Edge Case Reviewer | sonnet | Audit: boundaries, nulls, partial failures | Catches what happy-path misses |
+| Reviewer | sonnet | Audit: async/concurrency + perf/architecture | Remaining audit lenses |
 | Verifier | sonnet | Verify: test + lint runner | Needs to run tools reliably |
 
 Use AskUserQuestion to show these defaults and let the user override any role. Accept "defaults" to skip customization.
@@ -120,10 +124,24 @@ Full state schema:
     "explorer": "haiku",
     "planner": "opus",
     "worker": "sonnet",
+    "business_reviewer": "sonnet",
+    "security_reviewer": "sonnet",
+    "edge_case_reviewer": "sonnet",
     "reviewer": "sonnet",
     "verifier": "sonnet"
   },
   "phases": [ ... ],
+  "failureLog": [
+    {
+      "workItem": "feature id",
+      "attempts": [
+        { "attempt": 1, "session": 1, "approach": "...", "error": "...", "timestamp": "..." }
+      ],
+      "totalAttempts": 0,
+      "escalatedTo": null,
+      "resolved": false
+    }
+  ],
   "paused": false,
   "pauseHistory": [],
   "progressLog": [
@@ -163,6 +181,8 @@ Follow the protocol's instructions. Each protocol file includes **Phase Transiti
 
 ## Phase Execution Loop
 
+The `/mission` command is the **orchestrator**. It owns all decisions: which subagents to spawn, when to retry, when to escalate, and when to hand off. Subagents are workers — they report results back, they don't make orchestration decisions.
+
 For each phase:
 
 1. Read the current phase's protocol from `references/`
@@ -178,6 +198,63 @@ For each phase:
    - **High:** Continue automatically through all phases
 
 When the final phase completes, set `completedAt` on the mission state and present a final summary.
+
+---
+
+## Orchestrator Failure & Handoff Loop
+
+The orchestrator manages all retries, escalations, and handoffs. Subagents never decide these — they just return success or failure.
+
+```
+Subagent returns failure
+        ↓
+Orchestrator logs attempt to failureLog in state file
+        ↓
+Total attempts ≥ 6? ──yes──→  HARD STOP: mark work item as blocker, ask user
+        ↓ no
+Attempt < 3 (this session)?  ──yes──→  Spawn new subagent (different approach)
+        ↓ no
+Escalate to Opus debug agent (model: opus) with full failure log
+        ↓
+Opus succeeds? ──yes──→  Continue to next work item
+        ↓ no
+Auto-generate handoff.md → Pause mission → Inform user
+```
+
+### Guards Against Infinite Loops
+
+- **Per-work-item ceiling:** Max **3 attempts per session** + 1 Opus escalation. This is enforced by counting `attempts` in the `failureLog` entry for this work item.
+- **Cross-session ceiling:** Max **6 total attempts** across ALL sessions for any single work item. If a handoff resumes and the same item has already been tried 6 times total, STOP — do not retry. Mark the work item as a **blocker** and ask the user: "This item has failed 6 times across sessions. Skip it (`/mission skip`), fix it manually, or abort?"
+- **Autonomy override:** The failure/handoff loop **always pauses** after Opus fails, regardless of autonomy level. Even on High autonomy, exhausted retries force a pause. This prevents runaway loops.
+- **Only the orchestrator writes state:** Subagents never write to `active-mission.json`. They return results to the orchestrator, which is the single writer. This prevents race conditions when parallel subagents run.
+
+### How it works step by step
+
+1. **Before dispatching**, orchestrator reads `failureLog` for this work item:
+   - If total attempts ≥ 6 → HARD STOP, ask user
+   - If attempts this session ≥ 3 → skip to Opus escalation
+2. **Orchestrator dispatches a subagent** for the work item
+3. **Subagent returns** success or failure
+4. **Orchestrator receives the result** and decides:
+   - **Success** → log it, move to next work item
+   - **Failure, attempt 1-2** → log the error and approach to `failureLog`, spawn a new subagent with instructions: "Previous attempts failed: [details]. Do NOT repeat these approaches."
+   - **Failure, attempt 3** → log it, spawn an Opus debug agent with the full failure history
+   - **Opus succeeds** → mark `resolved: true`, continue
+   - **Opus fails** → auto-write `handoff.md`, pause mission, inform user
+5. **New session** runs `/mission` → orchestrator reads state + `handoff.md` → checks total attempt count before retrying
+
+### What subagents know
+
+Subagents receive:
+- The work item goal, files, approach
+- Previous failure details (so they don't repeat)
+- CLAUDE.md summary and constraints
+
+Subagents do NOT:
+- Track their own attempt count
+- Decide to escalate or hand off
+- Write to `failureLog` or `active-mission.json` (the orchestrator does this)
+- Know about other subagents or the mission state
 
 ---
 
@@ -274,12 +351,24 @@ Started: [startedAt] | Elapsed: [total duration]
 
 Compute durations from `startedAt`/`completedAt` on each phase. For the active phase, show elapsed time since `startedAt`.
 
+### `/mission handoff`
+
+Manual escape hatch — force a handoff to a new session. The orchestrator does this automatically when failure escalation is exhausted, but you can also trigger it manually at any time.
+
+1. Read `.claude/missions/active-mission.json`
+2. If no active mission, report "No active mission to hand off"
+3. Generate `.claude/missions/handoff.md` following `references/protocol-handoff.md`
+4. Pause the mission (set `paused: true`)
+5. Add progressLog entry: `{ "type": "mission_handoff", "detail": "Mission handed off (manual)" }`
+6. Write state
+7. Report: "Handoff ready. Run `/mission` in a new session to resume with full context."
+
 ### `/mission reset`
 
 1. Read state to confirm a mission exists
 2. Ask user to confirm: "Reset will delete all mission state. Continue?"
 3. If confirmed:
-   - Delete `.claude/missions/active-mission.json`
+   - Delete `.claude/missions/active-mission.json` and `.claude/missions/handoff.md` (if exists)
    - Report: "Mission state cleared."
 
 ---
@@ -290,17 +379,35 @@ When `/mission` is invoked with no arguments in a new session:
 
 1. Read `.claude/missions/active-mission.json`
 2. If an active mission exists, display its status
-3. If the mission is not paused and not complete, offer to resume:
+3. Check for `.claude/missions/handoff.md`:
+   - If present, read it — this contains full context from the previous session including what was tried, what failed, and what's next
+   - Delete the handoff file after reading (it's been consumed)
+   - Resume the mission (set `paused: false`)
+4. If the mission is not paused and not complete:
    - Read the current phase's protocol
+   - If there are entries in `failureLog` for the current work, review them before retrying — do NOT repeat the same approaches that already failed
    - Continue execution from where the previous session left off
 
-The state file contains all information needed to fully reconstruct context without any session-specific storage.
+The state file + handoff document contain all information needed to fully reconstruct context.
 
 ---
+
+## State Validation
+
+Every time the state file is read, validate before proceeding:
+
+1. **File exists?** If not → "No active mission" (or offer to reconstruct from `handoff.md` if that exists)
+2. **Valid JSON?** If parse fails → report the error, suggest `/mission reset`
+3. **Required fields present?** Check: `description`, `mode`, `phases` (array with ≥1 entry), `autonomy`, `startedAt`. If any missing → report and suggest reset
+4. **modelAssignment complete?** For standard mode, all 8 roles must be present. For minimal, at least `explorer`, `planner`, `worker`, `verifier`. If a role is missing → fill it with `"sonnet"` as fallback and warn the user
+5. **Exactly one active phase?** If zero → mission may be complete (check `completedAt`) or stuck (suggest reset). If more than one → set the first active one as the real active phase, mark others as pending
+6. **Phase order valid?** Done phases must come before active, active before pending. If out of order → warn and suggest reset
 
 ## Important Notes
 
 - The state file is the single source of truth. Always read before modifying, write after every change.
+- **Only the orchestrator writes to the state file.** Subagents return results; the orchestrator updates state. This prevents race conditions.
 - Each protocol file in `references/` is self-contained with its own completion criteria and phase transition instructions.
 - Never skip the Review/approval gate — it exists to prevent wasted implementation effort.
-- If the state file is missing or corrupted, report the error and suggest `/mission reset`.
+- If `handoff.md` exists but state file is missing, offer to reconstruct state from the handoff document or reset.
+- **Template constraints and user constraints are additive.** If they conflict, template constraints take priority. Warn the user at setup if a conflict is detected.

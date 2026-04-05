@@ -28,6 +28,7 @@ Claude will walk you through setup (template, autonomy, model assignment), then 
 | `/mission skip` | Skip the current phase |
 | `/mission pause` | Pause the mission |
 | `/mission resume` | Resume a paused mission |
+| `/mission handoff` | Generate handoff doc and pause for session transfer |
 | `/mission done` | Mark mission complete early |
 | `/mission reset` | Clear all mission state |
 
@@ -73,7 +74,10 @@ Choose which Claude model runs each subagent role. This lets you balance cost an
 | Explorer | `haiku` | Architect: 3 parallel discovery agents |
 | Planner | `opus` | Architect: spec writing |
 | Worker | `sonnet` | Implement/Build: parallel code subagents |
-| Reviewer | `sonnet` | Audit: 3 parallel code reviewers |
+| Business Reviewer | `sonnet` | Audit: spec alignment, business logic, domain invariants |
+| Security Reviewer | `sonnet` | Audit: injection, auth, secrets, data exposure |
+| Edge Case Reviewer | `sonnet` | Audit: boundary values, null inputs, partial failures |
+| Reviewer | `sonnet` | Audit: async/concurrency + performance/architecture |
 | Verifier | `sonnet` | Verify: test + lint validation |
 
 Defaults are applied automatically. During setup, you can accept them or override any role.
@@ -85,6 +89,36 @@ Defaults are applied automatically. During setup, you can accept them or overrid
 | **Low** | Pause after every phase. Wait for you to say "continue" before advancing. |
 | **Medium** | Pause at phase boundaries for a status check. Continue through routine work. |
 | **High** | Run all phases to completion. Only stop on critical failures or missing dependencies. |
+
+## Failure Escalation & Auto-Handoff
+
+The orchestrator (`/mission`) manages all retries and escalation automatically. Subagents are workers — they report success or failure, they don't make decisions.
+
+```
+Subagent fails → Orchestrator logs it
+                        ↓
+              Attempt < 3? → Spawn new subagent (knows what failed, won't repeat)
+                        ↓ no
+              Escalate to Opus debug agent with full failure log
+                        ↓
+              Opus succeeds? → Continue
+                        ↓ no
+              Auto-generate handoff.md → Pause mission → Inform user
+```
+
+- Every attempt is logged in `failureLog` — failed approaches are never repeated
+- Subagents don't track attempts or decide to escalate — the orchestrator does
+- New session runs `/mission` → reads `handoff.md` → resumes with full context
+
+### Manual handoff
+
+You can also force a handoff at any time:
+
+```bash
+/mission handoff
+```
+
+This generates `.claude/missions/handoff.md` with the full mission context (config, phase status, plan, failure log, git diff) and pauses the mission.
 
 ## How It Works
 
@@ -119,10 +153,12 @@ The skill uses parallel subagents in three phases:
 
 **Implement** — parallel worker agents for independent work items that touch non-overlapping files
 
-**Audit** — 3 specialist reviewers run simultaneously:
-- Reviewer 1: Correctness and null safety
-- Reviewer 2: Security and async correctness
-- Reviewer 3: Performance and architecture
+**Audit** — 5 specialist reviewers run simultaneously:
+- Reviewer 1: Business logic — does the code match every spec requirement?
+- Reviewer 2: Security — injection, auth bypass, secrets, data exposure
+- Reviewer 3: Edge cases — null inputs, boundary values, partial failures, off-by-one
+- Reviewer 4: Async & concurrency — race conditions, unawaited promises, deadlocks
+- Reviewer 5: Performance & architecture — N+1 queries, memory leaks, SRP violations
 
 ## State & Persistence
 

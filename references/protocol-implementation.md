@@ -67,10 +67,17 @@ For **inline** execution, work through items sequentially:
 
 ## Failure Handling
 
-1. Document what was tried and why it failed
-2. Revert partial changes that would break the codebase
-3. Report with diagnostic detail
-4. Do NOT silently skip to the next phase
+If a work item fails (tests don't pass, implementation hits a dead end, or an unresolvable error):
+
+1. **Revert** any partial changes that would leave the codebase broken
+2. **Report back** with full detail:
+   - What approach was taken
+   - The exact error (message, stack trace, test output)
+   - What files were touched
+   - Why the approach didn't work
+3. Do NOT silently skip to the next work item or phase
+
+The **orchestrator** (the `/mission` command) owns all retry and escalation decisions. See "Orchestrator Failure & Handoff Loop" in SKILL.md. Subagents just report success or failure — they don't count attempts, escalate, or trigger handoffs.
 
 ## Phase Transition
 

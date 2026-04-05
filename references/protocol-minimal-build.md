@@ -67,12 +67,13 @@ When all work items are done, report:
 
 ## Failure Handling
 
-If you cannot complete a work item:
+If a work item fails:
 
-1. Document what you tried and why it failed
-2. Revert any partial changes that would break the codebase
-3. Report the failure with diagnostic detail
-4. Do NOT silently skip or move to Verify
+1. **Revert** any partial changes that would break the codebase
+2. **Report back** with the exact error, approach taken, and files touched
+3. Do NOT silently skip or move to Verify
+
+The **orchestrator** owns all retry and escalation decisions — see "Orchestrator Failure & Handoff Loop" in SKILL.md.
 
 ## Phase Transition
 

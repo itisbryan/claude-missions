@@ -24,3 +24,12 @@
   - The spec is fundamentally ambiguous and proceeding would waste effort
 - For all other decisions, use your best judgment and document your choices.
 - At the end, provide a comprehensive summary of everything done.
+
+## Failure Override (all levels)
+
+Regardless of autonomy level, the orchestrator **always pauses** when:
+- A work item has failed 3 attempts + Opus escalation in the current session
+- A work item has reached 6 total attempts across sessions
+- A handoff document is generated
+
+This is a hard safety stop — high autonomy cannot override it. The user must decide: skip the item, fix it manually, or abort.
