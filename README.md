@@ -4,7 +4,7 @@ A skill bundle for [Claude Code](https://claude.ai/code) — multi-phase mission
 
 **Two skills, one repo:**
 - **`/mission`** — structured development workflows with parallel subagents, failure escalation, and auto-handoff
-- **`/obsidian`** — read, write, search, and link notes in your Obsidian vault
+- **`/obsidian`** — read, write, search, and link notes in your Obsidian vault with indexed lookup
 
 ## Install
 
@@ -17,15 +17,144 @@ npx skills add itisbryan/claude-missions@mission
 npx skills add itisbryan/claude-missions@obsidian
 ```
 
-## Quick Start
+---
+
+## Workflows
+
+### 1. Full mission with vault documentation
+
+The most powerful workflow — run a structured mission and save everything to your second brain.
 
 ```bash
-/mission build a REST API for user management
+# First time: set up your vault
+/obsidian config
+# → provide your Obsidian vault path (e.g., ~/Documents/niin2brain)
+
+# Build the vault index so Claude can learn from your existing notes
+/obsidian index
+
+# Start a mission — select a template, set vault as second brain
+/mission build a discount engine for the checkout service
+# → Template: Feature
+# → Second Brain: ~/Documents/niin2brain
+# → Model Assignment: defaults
+
+# Claude runs through all 6 phases automatically:
+# 📐 Architect → reads your vault first for prior decisions and patterns
+# 👁️ Review → you approve the plan
+# 🔨 Implement → parallel workers build it
+# 🧪 Test → writes and runs tests
+# 🔍 Audit → 5 specialist reviewers check everything
+# ✅ Verify → validates against the spec
+
+# Every phase saves outputs to your vault:
+# vault/missions/build-discount-engine/01-discovery.md
+# vault/missions/build-discount-engine/02-plan.md
+# vault/missions/build-discount-engine/decisions/decision-001.md
+# ...etc
 ```
 
-Claude will walk you through setup (template, autonomy, model assignment), then execute a structured multi-phase workflow automatically.
+### 2. Quick bug fix
 
-## Commands
+Minimal mode with regression-test-first discipline.
+
+```bash
+/mission fix the race condition in payment processing
+# → Template: Bug Fix (auto-sets Minimal mode, Low autonomy)
+
+# 3 phases:
+# 📋 Plan → reproduce bug, find root cause, propose fix
+# 🔨 Build → write failing test first, then fix, confirm test passes
+# ✅ Verify → full test suite + linter
+```
+
+### 3. Research spike with vault output
+
+Explore a question and save findings — no production code.
+
+```bash
+/mission evaluate whether we should migrate from Redis to Valkey
+# → Template: Investigation (Minimal mode, High autonomy)
+# → Second Brain: ~/Documents/niin2brain
+
+# Claude explores, writes throwaway code to test hypotheses,
+# then saves a structured report to your vault as a Resource note
+```
+
+### 4. Vault-powered development (no mission)
+
+Use `/obsidian` standalone to leverage your second brain during regular coding.
+
+```bash
+# Before writing code, check what you already know
+/obsidian search "authentication"
+# → Claude reads the index, finds 3 relevant notes, shows summaries
+
+# Read a specific note for context
+/obsidian read decision-auth-strategy
+# → Shows the full ADR with context, options, and decision
+
+# Save what you learned during a coding session
+/obsidian write pattern-retry-with-backoff
+# → Creates an Area note in 02 - Areas/ with proper frontmatter and tags
+
+# Document a key decision
+/obsidian write decision-use-redis-for-sessions
+# → Creates an ADR in decisions/ with options, trade-offs, consequences
+
+# End of day — capture session context
+/obsidian daily
+# → Appends a summary to today's daily note (06 - Daily/2026-04-05.md)
+
+# Check vault health periodically
+/obsidian audit
+# → Reports broken links, orphan notes, stale in-progress items
+```
+
+### 5. Cross-session handoff
+
+When a mission gets complex or you need to continue tomorrow.
+
+```bash
+# Session 1: start a big mission
+/mission refactor the entire payment module
+# → Works through Architect, Review, starts Implement...
+# → A work item fails 3 times, Opus debug also fails
+# → Orchestrator auto-generates handoff.md, pauses mission
+
+# Session 2 (next day): pick up where you left off
+/mission
+# → Reads state + handoff.md automatically
+# → Shows: "Mission paused. Work item 'extract payment gateway' failed 4 times."
+# → You decide: skip it, fix manually, or let Claude retry with fresh context
+```
+
+### 6. Index your vault for Claude to learn from
+
+Turn your existing Obsidian vault into a knowledge base that Claude can query efficiently.
+
+```bash
+# Build the index (do this once, then periodically)
+/obsidian index
+# → Scans 73 notes in ~/Documents/niin2brain
+# → Builds .vault-index.json (tags, summaries, links)
+# → Generates _vault-map.md MOC in 00 - Maps of content/
+
+# Now Claude can answer questions from your vault
+"What patterns do we use for error handling?"
+# → Claude reads index (1 call), finds 3 matching notes (3 calls)
+# → Total: 4 reads instead of 73
+
+"How did we decide on the discount engine architecture?"
+# → Index lookup: tagIndex["project/nanoco"] ∩ tagIndex["architecture"]
+# → Finds: Executive Summary, Design Systems, Refactoring Plan
+# → Reads those 3 notes, follows [[links]] to Performance Projection
+# → Gives you a complete answer from YOUR prior research
+```
+
+---
+
+## /mission — Commands
 
 | Command | Description |
 |---|---|
@@ -39,93 +168,77 @@ Claude will walk you through setup (template, autonomy, model assignment), then 
 | `/mission done` | Mark mission complete early |
 | `/mission reset` | Clear all mission state |
 
+## /obsidian — Commands
+
+| Command | Description |
+|---|---|
+| `/obsidian` | Show vault summary (note count, recent notes) |
+| `/obsidian config` | Set vault path |
+| `/obsidian index` | Build/rebuild vault index for fast lookup |
+| `/obsidian write <title>` | Create or update a note with the right template |
+| `/obsidian read <query>` | Find and display a note |
+| `/obsidian search <query>` | Search vault content with context |
+| `/obsidian daily` | Append to today's daily note |
+| `/obsidian link <from> <to>` | Add a wikilink between two notes |
+| `/obsidian audit` | Check for broken links, orphans, stale notes |
+
+---
+
 ## Modes
 
 ### Standard (6 phases)
 
 | # | Phase | What happens |
 |---|---|---|
-| 1 | 📐 Architect | 3 parallel Explore agents analyze the codebase (structure, domain, tests), then synthesize a spec |
-| 2 | 👁️ Review Plan | Present the spec to you, wait for explicit approval before writing any code |
-| 3 | 🔨 Implement | Execute the plan — dispatches parallel subagents for independent work items |
-| 4 | 🧪 Test | Write and run tests: unit, integration, edge cases, error paths |
-| 5 | 🔍 Audit | 3 parallel reviewers (correctness, security, performance) merge and deduplicate findings |
-| 6 | ✅ Verify | Assertion-based validation against the spec, full test suite + linter |
+| 1 | 📐 Architect | 3 parallel Explore agents analyze the codebase, then synthesize a spec |
+| 2 | 👁️ Review Plan | Present the spec, wait for explicit approval |
+| 3 | 🔨 Implement | Execute plan with parallel subagents |
+| 4 | 🧪 Test | Unit, integration, edge cases, error paths |
+| 5 | 🔍 Audit | 5 parallel reviewers merge and deduplicate findings |
+| 6 | ✅ Verify | Assertion-based validation, full test suite + linter |
 
 ### Minimal (3 phases)
 
 | # | Phase | What happens |
 |---|---|---|
 | 1 | 📋 Plan | Analyze codebase, outline approach, wait for approval |
-| 2 | 🔨 Build | Implement + test combined — write code and tests together |
+| 2 | 🔨 Build | Implement + test combined |
 | 3 | ✅ Verify | Run test suite, linter, validate against assertions |
 
 ## Templates
 
-Templates pre-configure the mode, autonomy level, and phase-specific constraints:
-
 | Template | Mode | Autonomy | What it does |
 |---|---|---|---|
-| **Feature** | Standard | Medium | Full rigor for new functionality. Extra attention to backward compatibility and auth. |
-| **Bug Fix** | Minimal | Low | Write a failing regression test first, then fix. Minimal change only. |
-| **Refactor** | Standard | Medium | Behavior must be identical before and after. Characterization tests first. |
-| **Investigation** | Minimal | High | Output is a report, not production code. Explore and answer specific questions. |
-| **Custom** | Choose | Choose | No template constraints. Configure everything manually. |
+| **Feature** | Standard | Medium | Full rigor. Backward compatibility + auth checks. |
+| **Bug Fix** | Minimal | Low | Regression-test-first. Minimal change only. |
+| **Refactor** | Standard | Medium | Behavior-preserving. Characterization tests first. |
+| **Investigation** | Minimal | High | Output is a report, not code. |
+| **Custom** | Choose | Choose | No template constraints. |
 
 ## Model Assignment
-
-Choose which Claude model runs each subagent role. This lets you balance cost and capability — use cheaper models for exploration and more capable models for planning and review.
 
 | Role | Default | Used in |
 |---|---|---|
 | Explorer | `haiku` | Architect: 3 parallel discovery agents |
 | Planner | `opus` | Architect: spec writing |
 | Worker | `sonnet` | Implement/Build: parallel code subagents |
-| Business Reviewer | `sonnet` | Audit: spec alignment, business logic, domain invariants |
-| Security Reviewer | `sonnet` | Audit: injection, auth, secrets, data exposure |
-| Edge Case Reviewer | `sonnet` | Audit: boundary values, null inputs, partial failures |
-| Reviewer | `sonnet` | Audit: async/concurrency + performance/architecture |
+| Business Reviewer | `sonnet` | Audit: spec alignment, business logic |
+| Security Reviewer | `sonnet` | Audit: injection, auth, secrets |
+| Edge Case Reviewer | `sonnet` | Audit: boundaries, nulls, partial failures |
+| Reviewer | `sonnet` | Audit: async/concurrency + performance |
 | Verifier | `sonnet` | Verify: test + lint validation |
-
-Defaults are applied automatically. During setup, you can accept them or override any role.
 
 ## Autonomy Levels
 
 | Level | Behavior |
 |---|---|
-| **Low** | Pause after every phase. Wait for you to say "continue" before advancing. |
-| **Medium** | Pause at phase boundaries for a status check. Continue through routine work. |
-| **High** | Run all phases to completion. Only stop on critical failures or missing dependencies. |
+| **Low** | Pause after every phase. Wait for "continue". |
+| **Medium** | Pause at phase boundaries. Continue through routine work. |
+| **High** | Run to completion. Stop only on critical failures. |
 
-## Failure Escalation & Auto-Handoff
+All levels force-pause when failure escalation exhausts retries (3 attempts + Opus + handoff).
 
-The orchestrator (`/mission`) manages all retries and escalation automatically. Subagents are workers — they report success or failure, they don't make decisions.
-
-```
-Subagent fails → Orchestrator logs it
-                        ↓
-              Attempt < 3? → Spawn new subagent (knows what failed, won't repeat)
-                        ↓ no
-              Escalate to Opus debug agent with full failure log
-                        ↓
-              Opus succeeds? → Continue
-                        ↓ no
-              Auto-generate handoff.md → Pause mission → Inform user
-```
-
-- Every attempt is logged in `failureLog` — failed approaches are never repeated
-- Subagents don't track attempts or decide to escalate — the orchestrator does
-- New session runs `/mission` → reads `handoff.md` → resumes with full context
-
-### Manual handoff
-
-You can also force a handoff at any time:
-
-```bash
-/mission handoff
-```
-
-This generates `.claude/missions/handoff.md` with the full mission context (config, phase status, plan, failure log, git diff) and pauses the mission.
+---
 
 ## Architecture
 
@@ -140,7 +253,8 @@ flowchart TD
         Q2 --> Q3[Autonomy?]
         Q3 --> Q4[Constraints?]
         Q4 --> Q5[Model Assignment?]
-        Q5 --> ReadClaude[Read CLAUDE.md]
+        Q5 --> Q6[Second Brain?]
+        Q6 --> ReadClaude[Read CLAUDE.md]
         ReadClaude --> Worktree[Create git worktree]
         Worktree --> State[Write state file]
     end
@@ -157,6 +271,7 @@ flowchart TD
 
     Phase2 -->|changes requested| Phase1
     Phase6 --> Done["🎉 Mission Complete"]
+    Phase6 -->|secondBrain set| Vault["📝 Save to Obsidian vault"]
 
     Pause["⏸ /mission pause"] -.-> Phases
     Skip["/mission skip"] -.-> Phases
@@ -192,11 +307,11 @@ flowchart LR
 
     subgraph Audit["🔍 Audit Phase"]
         direction TB
-        O3[Orchestrator] --> R1["📋 Business Logic\n(sonnet)"]
+        O3[Orchestrator] --> R1["📋 Business\n(sonnet)"]
         O3 --> R2["🔒 Security\n(sonnet)"]
         O3 --> R3["🧪 Edge Cases\n(sonnet)"]
         O3 --> R4["⚡ Async\n(sonnet)"]
-        O3 --> R5["📊 Performance\n(sonnet)"]
+        O3 --> R5["📊 Perf\n(sonnet)"]
         R1 --> Synth2[Synthesize]
         R2 --> Synth2
         R3 --> Synth2
@@ -221,13 +336,13 @@ flowchart TD
     SessionCheck -->|yes| Retry["Spawn new subagent\n(different approach,\nknows what failed)"]
     Retry --> Result
 
-    SessionCheck -->|no| Opus["🧠 Escalate to Opus\ndebug agent\nwith full failure log"]
+    SessionCheck -->|no| Opus["🧠 Escalate to Opus\ndebug agent"]
     Opus --> OpusResult{Opus\nsucceeds?}
 
-    OpusResult -->|yes| Resolved["✅ Resolved\ncontinue"]
+    OpusResult -->|yes| Resolved["✅ Resolved"]
     OpusResult -->|no| AutoHandoff["📄 Auto-generate\nhandoff.md"]
     AutoHandoff --> PauseMission["⏸ Pause mission"]
-    PauseMission --> Inform["Inform user:\nRun /mission\nin new session"]
+    PauseMission --> Inform["Inform user"]
 
     Inform --> NewSession["/mission\nin new session"]
     NewSession --> ReadHandoff["Read handoff.md\n+ failureLog"]
@@ -237,6 +352,25 @@ flowchart TD
     style Resolved fill:#51cf66,color:#fff
     style Next fill:#51cf66,color:#fff
     style Opus fill:#845ef7,color:#fff
+```
+
+### Vault Index Lookup
+
+```mermaid
+flowchart TD
+    Query["User asks a question"] --> ReadIndex["Read .vault-index.json\n(~2-5K tokens)"]
+    ReadIndex --> Search{"Match by\ntag / title / summary?"}
+
+    Search -->|yes| Found["1-5 matching notes"]
+    Search -->|no| Grep["Fallback: Grep vault"]
+    Grep --> Found
+
+    Found --> ReadNotes["Read only matched notes\n(3-5 Read calls)"]
+    ReadNotes --> Links["Follow [[wikilinks]]\n(1 hop max)"]
+    Links --> Answer["Answer with full context"]
+
+    style ReadIndex fill:#339af0,color:#fff
+    style Answer fill:#51cf66,color:#fff
 ```
 
 ### State & Session Continuity
@@ -260,41 +394,29 @@ flowchart LR
     end
 ```
 
-## /obsidian — Second Brain Vault Manager
+---
 
-Read, write, search, and link notes in your Obsidian vault. Works standalone or integrated with `/mission`.
+## Obsidian Integration
 
-```bash
-/obsidian config                          # set vault path
-/obsidian write my-architecture-patterns  # create a note
-/obsidian search "discount engine"        # search vault
-/obsidian daily                           # append to today's note
-/obsidian audit                           # check vault health
-/obsidian read wide-events                # find and display a note
-/obsidian link plan-doc review-notes      # add a wikilink
-```
+### Note Types & PARA Structure
 
-### Note Types
-
-| Type | Folder | Template |
+| Type | Folder | When to use |
 |---|---|---|
-| Project | `01 - Projects/` | Active work, tasks, deadlines |
-| Area | `02 - Areas/` | Domain knowledge, patterns |
-| Resource | `03 - Resources/` | External references, guides |
-| Decision | `decisions/` | ADR-format trade-off records |
-| Daily | `06 - Daily/` | Journal, session log |
-| Fleeting | `05 - Fleeting/` | Quick unprocessed thoughts |
+| **Project** | `01 - Projects/` | Active work with deadlines |
+| **Area** | `02 - Areas/` | Domain knowledge, ongoing responsibilities |
+| **Resource** | `03 - Resources/` | External references, tools, guides |
+| **Decision** | `decisions/` | Architecture/design trade-offs (ADR format) |
+| **Daily** | `06 - Daily/` | Journal entry, session log |
+| **Fleeting** | `05 - Fleeting/` | Quick unprocessed thought |
 
-Follows the **PARA** structure with Obsidian-native frontmatter, `[[wikilinks]]`, and tags.
+### Mission Phase Outputs
 
-### Mission Integration
-
-When `/mission` has `secondBrain` set, phase outputs are auto-saved to the vault:
+When `secondBrain` is set, each phase auto-saves to the vault:
 
 ```
-vault/missions/build-rest-api/
+vault/missions/<mission-slug>/
 ├── _index.md               # MOC linking all phase notes
-├── 01-discovery.md          # Codebase analysis
+├── 01-discovery.md          # Codebase analysis findings
 ├── 02-plan.md               # Approved spec
 ├── 03-review-notes.md       # Review decisions
 ├── 04-implementation-log.md # Appended per work item
@@ -304,58 +426,32 @@ vault/missions/build-rest-api/
 └── decisions/               # Trade-off ADRs
 ```
 
-### Vault-First Rule
+### Vault Index
 
-Before exploring code for architectural or design questions, the skill **searches the vault first** — your second brain is persistent cross-session memory.
+`.vault-index.json` gives Claude a compact lookup table:
 
-## How It Works
+```json
+{
+  "noteCount": 73,
+  "notes": {
+    "path/to/note.md": {
+      "title": "Note Title",
+      "tags": ["backend", "architecture"],
+      "aliases": ["alt name"],
+      "links": ["Other Note", "Another Note"],
+      "summary": "One-line description of this note.",
+      "updated": "2026-04-05"
+    }
+  },
+  "tagIndex": { "backend": ["path1.md", "path2.md"] },
+  "linkGraph": { "note.md": ["linked-note.md"] },
+  "folderIndex": { "Projects": ["path1.md"], "Areas": ["path2.md"] }
+}
+```
 
-### Setup Flow
+**Index first, read second.** Claude loads the index (~2-5K tokens), finds relevant notes, reads only those. For a 73-note vault, typical lookup: 5 Read calls instead of 73.
 
-When you run `/mission <description>`:
-
-1. **Template** — choose Feature, Bug Fix, Refactor, Investigation, or Custom
-2. **Mode** — Standard (6 phases) or Minimal (3 phases) — auto-set by template
-3. **Autonomy** — Low, Medium, or High — auto-set by template
-4. **Constraints** — optional boundaries (e.g., "don't touch auth module")
-5. **Model Assignment** — which model runs each subagent role
-6. **Second Brain** — optional Obsidian vault path for mission docs
-7. **CLAUDE.md** — project instructions are read and passed to all subagents
-8. **Git worktree** — an isolated branch is created for the mission
-
-### During Execution
-
-- Each phase reads its protocol from `references/` and follows it exactly
-- Subagents are dispatched with the model you assigned to their role
-- CLAUDE.md is summarized and passed to every subagent to honor project conventions
-- Phase transitions update the state file and Claude Code task list
-- Autonomy gates control when to pause for your input
-
-### Parallel Subagents
-
-The skill uses parallel subagents in three phases:
-
-**Architect** — 3 Explore agents run simultaneously:
-- Agent 1: Project structure, stack, architecture patterns
-- Agent 2: Domain models, schemas, APIs, data flow
-- Agent 3: Test framework, patterns, CI config, quality gates
-
-**Implement** — parallel worker agents for independent work items that touch non-overlapping files
-
-**Audit** — 5 specialist reviewers run simultaneously:
-- Reviewer 1: Business logic — does the code match every spec requirement?
-- Reviewer 2: Security — injection, auth bypass, secrets, data exposure
-- Reviewer 3: Edge cases — null inputs, boundary values, partial failures, off-by-one
-- Reviewer 4: Async & concurrency — race conditions, unawaited promises, deadlocks
-- Reviewer 5: Performance & architecture — N+1 queries, memory leaks, SRP violations
-
-## State & Persistence
-
-Mission state is stored at `.claude/missions/active-mission.json` in your project directory.
-
-- Survives session restarts — run `/mission` to pick up where you left off
-- Tracks phase status, timestamps, autonomy level, model assignment, and a progress log
-- `/mission log` shows the full timeline with per-phase durations
+---
 
 ## Project Structure
 
@@ -364,7 +460,7 @@ claude-missions/
 ├── README.md
 └── skills/
     ├── mission/                          # /mission skill
-    │   ├── SKILL.md                      # Core orchestrator
+    │   ├── SKILL.md
     │   └── references/
     │       ├── protocol-planning.md
     │       ├── protocol-review.md
@@ -379,9 +475,9 @@ claude-missions/
     │       ├── templates.md
     │       └── autonomy-levels.md
     └── obsidian/                         # /obsidian skill
-        ├── SKILL.md                      # Vault manager
+        ├── SKILL.md
         └── references/
-            ├── conventions.md            # PARA, tags, links
+            ├── conventions.md
             └── templates/
                 ├── project-note.md
                 ├── area-note.md

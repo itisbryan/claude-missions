@@ -1,7 +1,7 @@
 ---
 name: obsidian
 description: "Read and write notes to an Obsidian vault. Use when the user asks to 'save to obsidian', 'write a note', 'update my vault', 'add to second brain', 'save this research', 'document this decision', or references their knowledge base. Also triggers on /obsidian commands."
-argument-hint: "[write <title> | read <query> | search <query> | daily | link <from> <to> | audit | config]"
+argument-hint: "[write <title> | read <query> | search <query> | daily | link <from> <to> | index | audit | config]"
 ---
 
 # Obsidian — Second Brain Vault Manager
@@ -29,6 +29,7 @@ Once found, validate: the directory must exist and contain a `.obsidian/` folder
 | `search <query>` | Search vault content |
 | `daily` | Append to today's daily note |
 | `link <from> <to>` | Add a wikilink between two notes |
+| `index` | Rebuild the vault index for fast lookup |
 | `audit` | Check vault health (broken links, orphans, stale notes) |
 | `config` | Set vault path and preferences |
 | *(no args)* | Show vault summary (note count, recent notes, graph stats) |
@@ -72,21 +73,25 @@ If the type is ambiguous, ask the user with AskUserQuestion.
 
 ### `/obsidian read <query>`
 
-Find and display a note by title, tag, or content.
+Find and display a note. Uses the index for fast lookup.
 
-1. **Exact match**: Glob for `**/<query>.md` in the vault
-2. **Fuzzy match**: Grep for the query in filenames
-3. **Content search**: Grep for the query in file contents
-4. Display the note content, highlight wikilinks and tags
+1. Read `.vault-index.json`
+2. **Match by title/alias** — scan `notes` for matching `title` or `aliases`
+3. **Match by tag** — check `tagIndex` if query looks like a tag
+4. **Fallback** — Glob for `**/<query>.md` if index has no match
+5. Read and display the matched note
+6. Show its outgoing `[[wikilinks]]` as related notes the user can explore
 
 ### `/obsidian search <query>`
 
-Search vault content and return results.
+Search vault content. Index first, grep only if needed.
 
-1. Grep the vault for the query pattern
-2. Return matching files with context (surrounding lines)
-3. Group results by folder (Projects, Areas, Resources, etc.)
-4. Show tag co-occurrence if relevant
+1. Read `.vault-index.json`
+2. **Search summaries** — scan `summary` fields for the query keyword
+3. **Search tags** — check `tagIndex` for matching tags
+4. **If <3 results from index** — fall back to Grep across vault content
+5. Return matching files grouped by PARA folder
+6. Show match count and suggest reading specific notes
 
 ### `/obsidian daily`
 
@@ -107,6 +112,84 @@ Add a wikilink between two notes.
 1. Find both notes in the vault
 2. Add `[[to]]` as a link in the `from` note (in a `## Related` section or inline)
 3. Report the link was created
+
+### `/obsidian index`
+
+Rebuild the vault index at `<vault>/.vault-index.json`. This is a compact lookup table that lets Claude find relevant notes without reading every file.
+
+**Step 1 — Scan every `.md` file in the vault** (skip `.obsidian/` and `node_modules/`)
+
+For each note, extract:
+- `path` — relative path from vault root
+- `title` — H1 heading or filename
+- `tags` — from frontmatter `tags` array
+- `aliases` — from frontmatter `aliases` array
+- `links` — all `[[wikilinks]]` found in the content
+- `summary` — first non-empty paragraph after H1 (max 120 chars)
+- `updated` — file modification date
+- `folder` — PARA category (`Projects`, `Areas`, `Resources`, etc.)
+
+**Step 2 — Build reverse indexes:**
+
+```json
+{
+  "generated": "2026-04-05T10:00:00Z",
+  "noteCount": 73,
+  "notes": {
+    "01 - Projects/Nanoco/Ampo/Refactoring/plan.md": {
+      "title": "Refactoring Plan",
+      "tags": ["project/nanoco", "refactoring", "architecture"],
+      "aliases": ["ZK10 Plan"],
+      "links": ["Design Systems", "Performance Projection"],
+      "summary": "Phase-by-phase plan for discount engine refactoring with 4 phases.",
+      "updated": "2026-03-31",
+      "folder": "Projects"
+    }
+  },
+  "tagIndex": {
+    "backend": ["02 - Areas/backend/wide_event.md"],
+    "project/nanoco": ["01 - Projects/Nanoco/Ampo/Refactoring/plan.md", "..."]
+  },
+  "linkGraph": {
+    "plan.md": ["design-systems.md", "performance-projection.md"],
+    "design-systems.md": ["plan.md", "pure-evaluator-pattern.md"]
+  },
+  "folderIndex": {
+    "Projects": ["path1.md", "path2.md"],
+    "Areas": ["path3.md"],
+    "Resources": ["path4.md"]
+  }
+}
+```
+
+**Step 3 — Write `.vault-index.json` to vault root.**
+
+Also generate `00 - Maps of content/_vault-map.md` — a human-readable MOC:
+```markdown
+---
+tags: [meta, index]
+updated: 2026-04-05
+---
+# Vault Map
+
+## By Project
+- [[Refactoring Plan]] — discount engine refactoring
+- ...
+
+## By Area
+- [[Wide Events]] — structured logging pattern
+- ...
+
+## By Tag
+### #backend (5 notes)
+- [[wide_event]] — ...
+- ...
+```
+
+**When to rebuild:**
+- Run `/obsidian index` explicitly
+- Auto-rebuild when `/obsidian write` creates or updates a note (incremental — update only the changed entry, don't rescan everything)
+- Suggest rebuilding if the index is older than 7 days
 
 ### `/obsidian audit`
 
@@ -180,6 +263,50 @@ To connect a mission to your vault:
 
 ---
 
+## Index-First Lookup (Token Optimization)
+
+**Never read every note in the vault.** Always use the index for efficient lookup:
+
+1. **Read `.vault-index.json`** (~2-5K tokens for a 100-note vault)
+2. **Query the index** — match by tag, title, alias, or summary text
+3. **Read only the matching notes** — typically 1-5 files instead of 100
+4. **Follow links** — if a note links to related notes, read those too (1 hop max)
+
+### Lookup Strategy
+
+| Query type | How to find notes |
+|---|---|
+| By topic | Search `tagIndex` for matching tags |
+| By name | Search `notes` keys and `title`/`aliases` fields |
+| By keyword | Search `summary` fields in the index first, then `Grep` the vault only if no index match |
+| By project | Search `folderIndex.Projects` |
+| By relationship | Follow `linkGraph` from a known note |
+
+### Example
+
+User asks: "What's our approach to discount engine refactoring?"
+
+1. Read `.vault-index.json` (one Read call)
+2. Search: `tagIndex["refactoring"]` → finds 5 notes
+3. Search: `tagIndex["project/nanoco"]` → finds 12 notes  
+4. Intersect: 3 notes match both → read those 3 files (three Read calls)
+5. Follow links: one note links to `[[Performance Projection]]` → read that too
+6. **Total: 5 Read calls instead of 73**
+
+### If the Index Is Missing
+
+If `.vault-index.json` doesn't exist:
+1. Warn: "Vault index not found. Building it now..."
+2. Run the index build (same as `/obsidian index`)
+3. Then proceed with the lookup
+
+### If the Index Is Stale
+
+If the index `generated` timestamp is older than 7 days:
+1. Warn: "Vault index is [N] days old. Results may be incomplete."
+2. Proceed with the stale index (still faster than no index)
+3. Suggest: "Run `/obsidian index` to rebuild."
+
 ## Vault-First Rule
 
-**Before exploring code for architectural, domain, or design questions, ALWAYS search the vault first.** The vault is persistent cross-session memory. Check it before grepping the codebase — the answer may already be documented.
+**Before exploring code for architectural, domain, or design questions, ALWAYS search the vault first.** Use the index to find relevant notes in 1-2 Read calls. The vault is persistent cross-session memory — the answer may already be documented.
