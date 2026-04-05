@@ -11,10 +11,13 @@ Conduct a thorough code audit using 5 parallel specialist reviewers, each with a
 
 ## Process
 
-### Step 0: Load Context
+### Step 0: Load Context (compaction-safe)
 
-1. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, and the approved plan
-2. Collect the list of files changed during the Implement phase
+Always run this step first. Compaction may have removed earlier context.
+
+1. Run `node scripts/mission-state.mjs status` — confirm you're in the Audit phase
+2. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, and the approved plan
+3. Collect the list of files changed during the Implement phase
 3. **If `secondBrain` is set:**
    - Read `.vault-index.json` — find any prior decision records or architecture notes related to changed files
    - Pass relevant vault context to the Business Logic reviewer (so it can check against documented decisions, not just the current spec)

@@ -1,6 +1,10 @@
 # Phase Transition Steps
 
-When the current phase's completion criteria are met, follow these steps exactly:
+When the current phase's completion criteria are met, follow these steps exactly.
+
+**Prefer using the script** for steps 1-6: `node scripts/mission-state.mjs phase-transition` — this handles all state updates atomically and is compaction-safe (no conversation context needed).
+
+If the script is unavailable, do it manually:
 
 1. Read `.claude/missions/active-mission.json`
    - If the file is missing or contains invalid JSON, report the error and suggest `/mission reset`

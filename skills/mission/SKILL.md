@@ -115,7 +115,7 @@ Create the directory `.claude/missions/` if it doesn't exist, then write `active
 **Standard mode phases:**
 ```json
 [
-  { "name": "Architect", "emoji": "\ud83d\udcd0", "status": "active", "startedAt": "<now>" },
+  { "name": "Architect", "emoji": "\ud83d\udcd0", "status": "active", "startedAt": "<now>", "completedAt": null },
   { "name": "Review Plan", "emoji": "\ud83d\udc41\ufe0f", "status": "pending" },
   { "name": "Implement", "emoji": "\ud83d\udd28", "status": "pending" },
   { "name": "Test", "emoji": "\ud83e\uddea", "status": "pending" },
@@ -153,6 +153,18 @@ Full state schema:
     "verifier": "sonnet"
   },
   "phases": [ ... ],
+  "performanceLog": [
+    {
+      "agent": "explorer-1",
+      "role": "explorer",
+      "model": "haiku",
+      "phase": "Architect",
+      "task": "description",
+      "scores": { "quality": 4, "completeness": 3, "efficiency": 5, "composite": 3.9 },
+      "verdict": "solid",
+      "feedback": "actionable feedback"
+    }
+  ],
   "failureLog": [
     {
       "workItem": "feature id",
@@ -204,6 +216,32 @@ Follow the protocol's instructions. Each protocol file includes **Phase Transiti
 ## Phase Execution Loop
 
 The `/mission` command is the **orchestrator**. It owns all decisions: which subagents to spawn, when to retry, when to escalate, and when to hand off. Subagents are workers — they report results back, they don't make orchestration decisions.
+
+### Compaction Resilience
+
+Context compaction can happen at any time — after a subagent returns, between phases, or mid-phase. The orchestrator MUST be stateless between steps. **Never rely on conversation memory for mission state.**
+
+**Rule: re-read state before every decision.** Specifically:
+
+1. **After every subagent returns** — run `node scripts/mission-state.mjs get phases` to know where you are. Don't assume you remember which work item was being processed.
+2. **Before every phase transition** — re-read the full state file. Compaction may have removed the setup context (template, constraints, model assignment).
+3. **Before dispatching a subagent** — re-read `failureLog` and `performanceLog` from state. Don't rely on conversation memory for attempt counts or scores.
+4. **If you feel disoriented** — run `node scripts/mission-state.mjs status`. The state file is the single source of truth.
+
+The state file + scripts make the orchestrator resilient to compaction. Even if 100% of conversation context is lost, the mission can continue from the state file alone.
+
+### After Every Subagent Returns
+
+1. **Re-read state**: `node scripts/mission-state.mjs get phases` — confirm which phase is active, which work item is current
+2. Evaluate the subagent's output using `references/protocol-scoring.md`
+3. Score quality (1-5), completeness (1-5), efficiency (1-5)
+4. Write specific, actionable feedback
+5. Log the score: `node scripts/mission-state.mjs score '<json>'`
+6. Feed scores into the next subagent's prompt
+
+See `references/protocol-scoring.md` for the full rubric.
+
+### Phase Loop
 
 For each phase:
 
@@ -429,6 +467,17 @@ Every time the state file is read, validate before proceeding:
 
 - The state file is the single source of truth. Always read before modifying, write after every change.
 - **Only the orchestrator writes to the state file.** Subagents return results; the orchestrator updates state. This prevents race conditions.
+- **Use scripts for deterministic operations** to save tokens. Run these via Bash instead of doing the work yourself:
+  - `scripts/mission-state.mjs status` — formatted mission status
+  - `scripts/mission-state.mjs phase-transition` — advance to next phase atomically
+  - `scripts/mission-state.mjs pause` / `resume` — toggle pause
+  - `scripts/mission-state.mjs log` — full progress timeline
+  - `scripts/mission-state.mjs score '<json>'` — append performance score
+  - `scripts/mission-state.mjs failure '<json>'` — append failure log entry
+  - `scripts/mission-state.mjs get <field>` — read a field from state
+  - `scripts/todo-scan.mjs [dir] [--vault <path>]` — scan code for TODO/FIXME
+  - `scripts/vault-index.mjs <vault-path>` — build vault index
+  - `scripts/vault-audit.mjs <vault-path>` — check vault health
 - Each protocol file in `references/` is self-contained with its own completion criteria and phase transition instructions.
 - Never skip the Review/approval gate — it exists to prevent wasted implementation effort.
 - If `handoff.md` exists but state file is missing, offer to reconstruct state from the handoff document or reset.

@@ -13,12 +13,15 @@ Implement the approved plan as part of an orchestrated mission.
 
 ## Process
 
-### Step 0: Load Context
+### Step 0: Load Context (compaction-safe)
 
-1. Re-read `CLAUDE.md` in the project root
-2. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, and `secondBrain`
-3. Review the approved plan from Architect/Review phases
-4. **If `secondBrain` is set:**
+Always run this step — even if you think you already know the state. Compaction may have removed earlier context.
+
+1. Run `node scripts/mission-state.mjs status` — confirm you're in the Implement phase
+2. Re-read `CLAUDE.md` in the project root
+3. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`, `performanceLog`
+4. Review the approved plan from Architect/Review phases
+5. **If `secondBrain` is set:**
    - Read `.vault-index.json` — check for notes related to the work items (prior implementations, decisions, patterns)
    - Check `code-todos.md` — any existing TODOs related to files we're about to change? Address them while we're there
    - Reference vault notes when making implementation decisions

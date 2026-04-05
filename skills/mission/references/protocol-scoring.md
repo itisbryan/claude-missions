@@ -1,0 +1,175 @@
+# Scoring Protocol — Subagent Performance Evaluation
+
+The orchestrator evaluates every subagent's output after it completes. Scores are stored in the state file and fed into future prompts to drive improvement.
+
+## When to Score
+
+Score after every subagent returns:
+- Explore agents (Architect phase)
+- Worker agents (Implement/Build phase)
+- Reviewer agents (Audit phase)
+- Opus debug agents (failure escalation)
+
+## Scoring Rubric
+
+Rate each output on 3 dimensions, 1-5 scale:
+
+### Quality (1-5)
+| Score | Meaning |
+|---|---|
+| 5 | Exceptional — thorough, zero issues, exceeded expectations |
+| 4 | Good — complete, minor gaps only |
+| 3 | Adequate — met basic requirements, some gaps |
+| 2 | Below expectations — missing key items, required rework |
+| 1 | Failed — output unusable, needed to redo entirely |
+
+### Completeness (1-5)
+| Score | Meaning |
+|---|---|
+| 5 | Covered everything asked + surfaced things we didn't think of |
+| 4 | Covered everything asked |
+| 3 | Covered most items, missed some |
+| 2 | Significant gaps — missed major areas |
+| 1 | Barely addressed the prompt |
+
+### Efficiency (1-5)
+| Score | Meaning |
+|---|---|
+| 5 | Concise, focused, no wasted tokens — exactly what was needed |
+| 4 | Mostly focused, minor verbosity |
+| 3 | Some unnecessary content or redundancy |
+| 2 | Significant bloat, repeated itself, included irrelevant info |
+| 1 | Mostly noise — had to dig for the useful parts |
+
+### Composite Score
+`composite = (quality * 0.5) + (completeness * 0.3) + (efficiency * 0.2)`
+
+### Verdict
+| Composite | Verdict | Emoji |
+|---|---|---|
+| 4.5 - 5.0 | Outstanding | 🏆 |
+| 3.5 - 4.4 | Solid | 👏 |
+| 2.5 - 3.4 | Needs improvement | 📝 |
+| 1.5 - 2.4 | Poor | ⚠️ |
+| 1.0 - 1.4 | Failed | 🔴 |
+
+## Performance Log Entry
+
+After scoring, append to `performanceLog` in the state file:
+
+```json
+{
+  "agent": "explorer-1",
+  "role": "explorer",
+  "model": "haiku",
+  "phase": "Architect",
+  "task": "Structure & Architecture analysis",
+  "scores": {
+    "quality": 4,
+    "completeness": 3,
+    "efficiency": 5,
+    "composite": 3.9
+  },
+  "verdict": "solid",
+  "feedback": "Good structure analysis but missed the middleware chain. Consider tracing request lifecycle next time.",
+  "timestamp": "2026-04-05T10:00:00Z"
+}
+```
+
+### Feedback Field
+
+Write specific, actionable feedback — not generic praise. Examples:
+
+**Good feedback:**
+- "Found the race condition in payment.ts that other agents missed. Excellent async analysis."
+- "Missed the auth middleware entirely — 3 protected routes have no auth check."
+- "Output was 2x longer than needed. The architecture summary could be 5 bullets, not 20."
+- "Correctly identified the N+1 query but the suggested fix wouldn't work with the current ORM version."
+
+**Bad feedback:**
+- "Good job" (not actionable)
+- "Needs improvement" (too vague)
+- "Fine" (no signal)
+
+## Feeding Scores Into Future Prompts
+
+When dispatching a new subagent for the same role, include performance context from past runs:
+
+### If previous score was high (≥ 4.0):
+```
+Performance context: Previous agents in this role scored 4.2/5.
+Maintain this standard. Key strength to keep: [feedback excerpt].
+```
+
+### If previous score was low (< 3.0):
+```
+Performance context: Previous agents in this role scored 2.1/5.
+Key gap: [feedback excerpt].
+Focus specifically on: [the weak dimension].
+This is your chance to improve on that result.
+```
+
+### If this is a retry after failure:
+```
+Performance context: This work item failed [N] times.
+Previous agent scored 1.5/5. Issue: [feedback].
+You MUST address: [specific gap].
+Do NOT repeat: [what failed].
+```
+
+## Role-Level Trends
+
+After 3+ scores for a role, compute the trend:
+
+```json
+{
+  "role": "explorer",
+  "avgComposite": 3.8,
+  "trend": "improving",
+  "strongestDimension": "efficiency",
+  "weakestDimension": "completeness",
+  "recommendation": "Explorer agents are fast but miss edge cases. Add 'check for middleware, hooks, and event handlers' to explorer prompts."
+}
+```
+
+### Model Recommendations
+
+If a role consistently scores below 3.0 across 3+ runs:
+- Suggest upgrading the model for that role (e.g., haiku → sonnet for explorer)
+- Report: "Explorer agents (haiku) have averaged 2.4/5 over 4 runs. Consider upgrading to sonnet."
+
+If a role consistently scores above 4.5:
+- Suggest downgrading to save cost (e.g., sonnet → haiku if it's overkill)
+- Report: "Worker agents (sonnet) have averaged 4.8/5 over 6 runs. Haiku might suffice for this project."
+
+## Second Brain Integration
+
+If `secondBrain` is set, save performance data to the vault:
+
+**Per-mission:** append scores to `04-implementation-log.md` or `06-audit-report.md`
+
+**Cross-mission trends:** write `01 - Projects/<project>/agent-performance.md`:
+```markdown
+---
+tags: [meta, performance, project/<name>]
+updated: 2026-04-05
+---
+# Agent Performance — <project>
+
+## Role Averages
+| Role | Model | Avg Score | Runs | Trend | Weak Spot |
+|---|---|---|---|---|---|
+| Explorer | haiku | 3.8 | 6 | → stable | completeness |
+| Worker | sonnet | 4.2 | 12 | ↑ improving | — |
+| Security Reviewer | sonnet | 4.5 | 4 | ↑ improving | — |
+| Business Reviewer | sonnet | 2.8 | 4 | ↓ declining | quality |
+
+## Recommendations
+- Business Reviewer: upgrade to opus — consistently missing spec requirements
+- Explorer: add "trace middleware chain" to prompt — recurring blind spot
+
+## Recent Scores
+[last 10 entries with feedback]
+```
+
+This note becomes a living performance dashboard that improves agent prompts over time.

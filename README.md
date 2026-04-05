@@ -166,7 +166,6 @@ Turn your existing Obsidian vault into a knowledge base that Claude can query ef
 /obsidian index
 # → Scans 73 notes in ~/Documents/niin2brain
 # → Builds .vault-index.json (tags, summaries, links)
-# → Generates _vault-map.md MOC in 00 - Maps of content/
 
 # Now Claude can answer questions from your vault
 "What patterns do we use for error handling?"
@@ -268,6 +267,58 @@ Turn your existing Obsidian vault into a knowledge base that Claude can query ef
 | **High** | Run to completion. Stop only on critical failures. |
 
 All levels force-pause when failure escalation exhausts retries (3 attempts + Opus + handoff).
+
+## Performance Scoring
+
+Every subagent is evaluated after it returns. The orchestrator scores 3 dimensions:
+
+| Dimension | Weight | What it measures |
+|---|---|---|
+| **Quality** | 50% | Thoroughness, correctness, zero issues |
+| **Completeness** | 30% | Covered everything asked, no gaps |
+| **Efficiency** | 20% | Concise, focused, no wasted tokens |
+
+### Verdicts
+
+| Composite | Verdict | |
+|---|---|---|
+| 4.5 - 5.0 | Outstanding | 🏆 |
+| 3.5 - 4.4 | Solid | 👏 |
+| 2.5 - 3.4 | Needs improvement | 📝 |
+| 1.5 - 2.4 | Poor | ⚠️ |
+| 1.0 - 1.4 | Failed | 🔴 |
+
+### How Scores Drive Improvement
+
+**Feedback loop** — each score includes specific, actionable feedback (not "good job" but "missed the auth middleware — 3 routes unprotected"). This feedback is passed into the next subagent's prompt:
+
+```
+High scorer (≥ 4.0):
+  "Previous agents scored 4.2/5. Maintain this standard."
+
+Low scorer (< 3.0):
+  "Previous agents scored 2.1/5. Key gap: missed edge cases.
+   Focus specifically on: boundary values and null inputs."
+
+Retry after failure:
+  "This item failed 2 times. Previous agent scored 1.5/5.
+   You MUST address: the race condition. Do NOT repeat: the lock-based approach."
+```
+
+**Model recommendations** — after 3+ runs, the orchestrator tracks trends per role:
+- Role averaging below 3.0? → suggest upgrading model (haiku → sonnet)
+- Role averaging above 4.5? → suggest downgrading to save cost (sonnet → haiku)
+
+**Vault tracking** — if `secondBrain` is set, writes `agent-performance.md` to the vault as a living dashboard:
+
+```
+| Role             | Model  | Avg  | Runs | Trend       |
+|------------------|--------|------|------|-------------|
+| Explorer         | haiku  | 3.8  | 6    | → stable    |
+| Worker           | sonnet | 4.2  | 12   | ↑ improving |
+| Security Review  | sonnet | 4.5  | 4    | ↑ improving |
+| Business Review  | sonnet | 2.8  | 4    | ↓ declining |
+```
 
 ---
 
@@ -489,6 +540,11 @@ vault/missions/<mission-slug>/
 ```
 claude-missions/
 ├── README.md
+├── scripts/
+│   ├── vault-index.mjs          # Build .vault-index.json (saves ~50-100K tokens)
+│   ├── todo-scan.mjs            # Scan code for TODO/FIXME (saves ~5-10K tokens)
+│   ├── mission-state.mjs        # Atomic state read/write/transition (saves ~3-5K tokens)
+│   └── vault-audit.mjs          # Check broken links, orphans (saves ~50K tokens)
 └── skills/
     ├── mission/                          # /mission skill
     │   ├── SKILL.md

@@ -13,9 +13,11 @@ You are in the **BUILD** phase of a minimal mission. This phase combines impleme
 
 ## Process
 
-1. Re-read `CLAUDE.md` in the project root
-2. Read `.claude/missions/active-mission.json` — get `modelAssignment` and `constraints`
-3. If 3+ independent work items, dispatch parallel subagents with `model: modelAssignment.worker`
+**Step 0 — Load Context (compaction-safe).** Always run first:
+1. Run `node scripts/mission-state.mjs status` — confirm you're in the Build phase
+2. Re-read `CLAUDE.md` in the project root
+3. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`
+4. If 3+ independent work items, dispatch parallel subagents with `model: modelAssignment.worker`
 
 For each work item from the plan:
 

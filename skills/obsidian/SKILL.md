@@ -263,28 +263,6 @@ For each note, extract:
 
 **Step 3 — Write `.vault-index.json` to vault root.**
 
-Also generate `00 - Maps of content/_vault-map.md` — a human-readable MOC:
-```markdown
----
-tags: [meta, index]
-updated: 2026-04-05
----
-# Vault Map
-
-## By Project
-- [[Refactoring Plan]] — discount engine refactoring
-- ...
-
-## By Area
-- [[Wide Events]] — structured logging pattern
-- ...
-
-## By Tag
-### #backend (5 notes)
-- [[wide_event]] — ...
-- ...
-```
-
 **When to rebuild:**
 - Run `/obsidian index` explicitly
 - Auto-rebuild when `/obsidian write` creates or updates a note (incremental — update only the changed entry, don't rescan everything)
@@ -405,6 +383,30 @@ If the index `generated` timestamp is older than 7 days:
 1. Warn: "Vault index is [N] days old. Results may be incomplete."
 2. Proceed with the stale index (still faster than no index)
 3. Suggest: "Run `/obsidian index` to rebuild."
+
+## Scripts (Token Optimization)
+
+Use these scripts via Bash for deterministic operations instead of doing the work yourself:
+
+| Script | What it does | Tokens saved |
+|---|---|---|
+| `scripts/vault-index.mjs <vault>` | Build `.vault-index.json` — scans all files, extracts frontmatter, builds tag/link indexes | Avoids reading every note (~50-100K tokens for large vaults) |
+| `scripts/todo-scan.mjs [dir] [--vault <path>]` | Grep for TODO/FIXME/HACK, format output, optionally write to vault | Avoids LLM grepping + formatting (~5-10K tokens) |
+| `scripts/vault-audit.mjs <vault>` | Check broken links, orphans, empty notes, stale items | Avoids reading every note + checking links (~50K tokens) |
+
+**Always prefer scripts over manual work.** The LLM should focus on reasoning (what to write, what decisions to make) — not on scanning, counting, or formatting.
+
+### When to use scripts vs. LLM
+
+| Task | Use script | Use LLM |
+|---|---|---|
+| Build vault index | `vault-index.sh` | — |
+| Scan for TODOs | `todo-scan.sh` | — |
+| Audit vault health | `vault-audit.sh` | Interpret results, suggest fixes |
+| Write a note | — | Classify type, generate content, add links |
+| Search vault | Read `.vault-index.json` | Interpret results, decide what to read |
+| Phase transition | `mission-state.sh phase-transition` | — |
+| Score a subagent | `mission-state.sh score` | Evaluate quality, write feedback |
 
 ## Vault-First Rule
 
