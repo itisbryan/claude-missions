@@ -75,6 +75,15 @@ Present the default model mappings and let the user customize. These control whi
 
 Use AskUserQuestion to show these defaults and let the user override any role. Accept "defaults" to skip customization.
 
+**Question 6 — Second Brain (optional):**
+Ask: "Save mission docs to a second brain vault (e.g., Obsidian)? Provide the directory path, or press enter to skip."
+
+If a path is provided:
+- Validate the directory exists
+- Store it as `secondBrain` in the state file
+- Each phase will write its outputs as Obsidian-compatible markdown to `<secondBrain>/missions/<mission-slug>/`
+- See `references/protocol-second-brain.md` for the output format
+
 ### 3. Read Project Instructions & Set Up Worktree
 
 **Read CLAUDE.md (if present):**
@@ -120,6 +129,7 @@ Full state schema:
   "autonomy": "low|medium|high",
   "template": "feature|bugfix|refactor|investigation|custom",
   "constraints": "<optional user-supplied constraints, or null>",
+  "secondBrain": "<path to vault directory, or null>",
   "modelAssignment": {
     "explorer": "haiku",
     "planner": "opus",

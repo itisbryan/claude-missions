@@ -164,6 +164,10 @@ Fix all P0/P1 findings. For each: make the change, verify it, note in report.
 - If zero issues found, confirm what was checked and why it's clean.
 - P0/P1 MUST be fixed before proceeding.
 
+## Second Brain
+
+If `secondBrain` is set, write `06-audit-report.md` with all findings, severity, and the coverage matrix. See `references/protocol-second-brain.md`.
+
 ## Phase Transition
 
 Follow the steps in `references/protocol-phase-transition.md`.

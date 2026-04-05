@@ -75,6 +75,10 @@ If a work item fails:
 
 The **orchestrator** owns all retry and escalation decisions — see "Orchestrator Failure & Handoff Loop" in SKILL.md.
 
+## Second Brain
+
+If `secondBrain` is set, write `04-implementation-log.md` with what was built and test results. For significant decisions, create `decisions/decision-NNN.md`. See `references/protocol-second-brain.md`.
+
 ## Phase Transition
 
 Once all work items are implemented and tested, follow the steps in `references/protocol-phase-transition.md`.

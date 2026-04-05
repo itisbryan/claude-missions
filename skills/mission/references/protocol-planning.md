@@ -82,6 +82,10 @@ Iterate until user says "approve", "go", "lgtm", or equivalent.
 
 **READ ONLY. Do not edit files until approved.**
 
+## Second Brain
+
+If `secondBrain` is set in state, write `01-discovery.md` (synthesized findings) and `02-plan.md` (approved spec) following `references/protocol-second-brain.md`. Also create the `_index.md` MOC.
+
 ## Phase Transition
 
 Once the user approves, follow the steps in `references/protocol-phase-transition.md`.

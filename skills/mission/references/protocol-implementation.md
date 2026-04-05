@@ -79,6 +79,10 @@ If a work item fails (tests don't pass, implementation hits a dead end, or an un
 
 The **orchestrator** (the `/mission` command) owns all retry and escalation decisions. See "Orchestrator Failure & Handoff Loop" in SKILL.md. Subagents just report success or failure — they don't count attempts, escalate, or trigger handoffs.
 
+## Second Brain
+
+If `secondBrain` is set, append to `04-implementation-log.md` as each work item completes. For significant trade-off decisions, create `decisions/decision-NNN.md`. See `references/protocol-second-brain.md`.
+
 ## Phase Transition
 
 Follow the steps in `references/protocol-phase-transition.md`.

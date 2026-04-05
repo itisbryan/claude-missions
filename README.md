@@ -1,13 +1,20 @@
 # claude-missions
 
-Multi-phase development mission orchestrator for [Claude Code](https://claude.ai/code). Inspired by [pi-missions](https://github.com/itisbryan/pi-missions).
+A skill bundle for [Claude Code](https://claude.ai/code) — multi-phase mission orchestration + Obsidian second brain integration. Inspired by [pi-missions](https://github.com/itisbryan/pi-missions).
 
-Runs structured workflows — plan, review, implement, test, audit, verify — with parallel subagents, per-role model assignment, and persistent state across sessions.
+**Two skills, one repo:**
+- **`/mission`** — structured development workflows with parallel subagents, failure escalation, and auto-handoff
+- **`/obsidian`** — read, write, search, and link notes in your Obsidian vault
 
 ## Install
 
 ```bash
+# Install both skills
 npx skills add itisbryan/claude-missions
+
+# Or install one at a time
+npx skills add itisbryan/claude-missions@mission
+npx skills add itisbryan/claude-missions@obsidian
 ```
 
 ## Quick Start
@@ -253,6 +260,54 @@ flowchart LR
     end
 ```
 
+## /obsidian — Second Brain Vault Manager
+
+Read, write, search, and link notes in your Obsidian vault. Works standalone or integrated with `/mission`.
+
+```bash
+/obsidian config                          # set vault path
+/obsidian write my-architecture-patterns  # create a note
+/obsidian search "discount engine"        # search vault
+/obsidian daily                           # append to today's note
+/obsidian audit                           # check vault health
+/obsidian read wide-events                # find and display a note
+/obsidian link plan-doc review-notes      # add a wikilink
+```
+
+### Note Types
+
+| Type | Folder | Template |
+|---|---|---|
+| Project | `01 - Projects/` | Active work, tasks, deadlines |
+| Area | `02 - Areas/` | Domain knowledge, patterns |
+| Resource | `03 - Resources/` | External references, guides |
+| Decision | `decisions/` | ADR-format trade-off records |
+| Daily | `06 - Daily/` | Journal, session log |
+| Fleeting | `05 - Fleeting/` | Quick unprocessed thoughts |
+
+Follows the **PARA** structure with Obsidian-native frontmatter, `[[wikilinks]]`, and tags.
+
+### Mission Integration
+
+When `/mission` has `secondBrain` set, phase outputs are auto-saved to the vault:
+
+```
+vault/missions/build-rest-api/
+├── _index.md               # MOC linking all phase notes
+├── 01-discovery.md          # Codebase analysis
+├── 02-plan.md               # Approved spec
+├── 03-review-notes.md       # Review decisions
+├── 04-implementation-log.md # Appended per work item
+├── 05-test-report.md        # Test results + coverage
+├── 06-audit-report.md       # Findings by severity
+├── 07-verification-report.md # Final verdict
+└── decisions/               # Trade-off ADRs
+```
+
+### Vault-First Rule
+
+Before exploring code for architectural or design questions, the skill **searches the vault first** — your second brain is persistent cross-session memory.
+
 ## How It Works
 
 ### Setup Flow
@@ -264,8 +319,9 @@ When you run `/mission <description>`:
 3. **Autonomy** — Low, Medium, or High — auto-set by template
 4. **Constraints** — optional boundaries (e.g., "don't touch auth module")
 5. **Model Assignment** — which model runs each subagent role
-6. **CLAUDE.md** — project instructions are read and passed to all subagents
-7. **Git worktree** — an isolated branch is created for the mission
+6. **Second Brain** — optional Obsidian vault path for mission docs
+7. **CLAUDE.md** — project instructions are read and passed to all subagents
+8. **Git worktree** — an isolated branch is created for the mission
 
 ### During Execution
 
@@ -305,18 +361,33 @@ Mission state is stored at `.claude/missions/active-mission.json` in your projec
 
 ```
 claude-missions/
-├── SKILL.md                              # Core orchestrator
-└── references/
-    ├── protocol-planning.md              # Architect/Plan phase
-    ├── protocol-review.md                # Plan approval gate
-    ├── protocol-implementation.md        # Implement phase
-    ├── protocol-minimal-build.md         # Build phase (minimal mode)
-    ├── protocol-testing.md               # Test phase
-    ├── protocol-audit.md                 # Audit phase
-    ├── protocol-verification.md          # Verify phase
-    ├── protocol-phase-transition.md      # Shared transition steps
-    ├── templates.md                      # Mission template definitions
-    └── autonomy-levels.md               # Autonomy level behaviors
+├── README.md
+└── skills/
+    ├── mission/                          # /mission skill
+    │   ├── SKILL.md                      # Core orchestrator
+    │   └── references/
+    │       ├── protocol-planning.md
+    │       ├── protocol-review.md
+    │       ├── protocol-implementation.md
+    │       ├── protocol-minimal-build.md
+    │       ├── protocol-testing.md
+    │       ├── protocol-audit.md
+    │       ├── protocol-verification.md
+    │       ├── protocol-phase-transition.md
+    │       ├── protocol-handoff.md
+    │       ├── protocol-second-brain.md
+    │       ├── templates.md
+    │       └── autonomy-levels.md
+    └── obsidian/                         # /obsidian skill
+        ├── SKILL.md                      # Vault manager
+        └── references/
+            ├── conventions.md            # PARA, tags, links
+            └── templates/
+                ├── project-note.md
+                ├── area-note.md
+                ├── resource-note.md
+                ├── decision-adr.md
+                └── daily-note.md
 ```
 
 ## License

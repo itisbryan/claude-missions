@@ -24,6 +24,10 @@ If the user requests changes:
 
 **DO NOT proceed to implementation without explicit approval. This gate exists for a reason.**
 
+## Second Brain
+
+If `secondBrain` is set, write `03-review-notes.md` with approval notes and any change requests. See `references/protocol-second-brain.md`.
+
 ## Phase Transition
 
 Once the user approves, follow the steps in `references/protocol-phase-transition.md`.

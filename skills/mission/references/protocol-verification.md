@@ -71,6 +71,10 @@ If an assertion cannot be tested:
 2. Suggest what would unblock it
 3. Continue with remaining assertions — do not stop the entire verification
 
+## Second Brain
+
+If `secondBrain` is set, write `07-verification-report.md` with assertion results and verdict. Update `_index.md` with final status and completion time. See `references/protocol-second-brain.md`.
+
 ## Phase Transition
 
 This is the **final phase**. Once verification is complete:
