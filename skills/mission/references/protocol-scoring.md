@@ -70,11 +70,27 @@ After scoring, append to `performanceLog` in the state file:
     "efficiency": 5,
     "composite": 3.9
   },
+  "usage": {
+    "totalTokens": 12450,
+    "toolUses": 8,
+    "durationMs": 34200
+  },
   "verdict": "solid",
   "feedback": "Good structure analysis but missed the middleware chain. Consider tracing request lifecycle next time.",
   "timestamp": "2026-04-05T10:00:00Z"
 }
 ```
+
+### Capturing Token Usage
+
+When a subagent completes, its result includes usage data in this format:
+```
+<usage>total_tokens: 12450
+tool_uses: 8
+duration_ms: 34200</usage>
+```
+
+Parse these values and include them in the performance log entry. If usage data is not available (e.g., inline execution), estimate by noting "inline" in the agent field and omit the usage block.
 
 ### Feedback Field
 
@@ -125,6 +141,10 @@ After 3+ scores for a role, compute the trend:
 {
   "role": "explorer",
   "avgComposite": 3.8,
+  "avgTokens": 11200,
+  "avgDurationMs": 28000,
+  "totalTokens": 67200,
+  "runs": 6,
   "trend": "improving",
   "strongestDimension": "efficiency",
   "weakestDimension": "completeness",
@@ -142,6 +162,9 @@ If a role consistently scores above 4.5:
 - Suggest downgrading to save cost (e.g., sonnet → haiku if it's overkill)
 - Report: "Worker agents (sonnet) have averaged 4.8/5 over 6 runs. Haiku might suffice for this project."
 
+If token usage is disproportionate to quality:
+- Report: "Business Reviewer used 45K tokens (avg) but scored 2.8/5. High cost, low value — switch model or tighten prompt."
+
 ## Second Brain Integration
 
 If `secondBrain` is set, save performance data to the vault:
@@ -157,19 +180,27 @@ updated: 2026-04-05
 # Agent Performance — <project>
 
 ## Role Averages
-| Role | Model | Avg Score | Runs | Trend | Weak Spot |
-|---|---|---|---|---|---|
-| Explorer | haiku | 3.8 | 6 | → stable | completeness |
-| Worker | sonnet | 4.2 | 12 | ↑ improving | — |
-| Security Reviewer | sonnet | 4.5 | 4 | ↑ improving | — |
-| Business Reviewer | sonnet | 2.8 | 4 | ↓ declining | quality |
+| Role | Model | Avg Score | Avg Tokens | Total Tokens | Runs | Trend |
+|---|---|---|---|---|---|---|
+| Explorer | haiku | 3.8 | 11.2K | 67K | 6 | → stable |
+| Worker | sonnet | 4.2 | 28.5K | 342K | 12 | ↑ improving |
+| Security Reviewer | sonnet | 4.5 | 18.3K | 73K | 4 | ↑ improving |
+| Business Reviewer | sonnet | 2.8 | 45.1K | 180K | 4 | ↓ declining |
+
+## Token Budget
+- Total mission tokens: 1.24M
+- By phase: Architect 134K | Implement 520K | Audit 365K | Verify 89K | Other 132K
+- Most expensive role: Worker (342K across 12 runs)
+- Best value: Explorer (67K tokens, 3.8/5 score — efficient)
+- Worst value: Business Reviewer (180K tokens, 2.8/5 score — high cost, low quality)
 
 ## Recommendations
-- Business Reviewer: upgrade to opus — consistently missing spec requirements
+- Business Reviewer: upgrade to opus or tighten prompt — 180K tokens for 2.8/5 is poor ROI
 - Explorer: add "trace middleware chain" to prompt — recurring blind spot
+- Worker: consider haiku for simple work items — 4.2/5 average suggests sonnet may be overkill for some tasks
 
 ## Recent Scores
-[last 10 entries with feedback]
+[last 10 entries with feedback and token usage]
 ```
 
-This note becomes a living performance dashboard that improves agent prompts over time.
+This note becomes a living performance + cost dashboard.

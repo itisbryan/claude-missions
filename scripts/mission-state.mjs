@@ -164,6 +164,77 @@ switch (cmd) {
     break;
   }
 
+  case 'tokens': {
+    const s = readState();
+    const log = s.performanceLog || [];
+
+    if (log.length === 0) {
+      console.log('\nNo token usage recorded yet.\n');
+      break;
+    }
+
+    // Per-phase totals
+    const byPhase = {};
+    const byRole = {};
+    let missionTotal = 0;
+
+    for (const entry of log) {
+      const tokens = entry.usage?.totalTokens || 0;
+      const phase = entry.phase || 'unknown';
+      const role = entry.role || 'unknown';
+      const model = entry.model || '?';
+
+      missionTotal += tokens;
+
+      if (!byPhase[phase]) byPhase[phase] = { tokens: 0, count: 0, durationMs: 0 };
+      byPhase[phase].tokens += tokens;
+      byPhase[phase].count++;
+      byPhase[phase].durationMs += entry.usage?.durationMs || 0;
+
+      if (!byRole[role]) byRole[role] = { tokens: 0, count: 0, model, avgScore: 0, scores: [] };
+      byRole[role].tokens += tokens;
+      byRole[role].count++;
+      if (entry.scores?.composite) byRole[role].scores.push(entry.scores.composite);
+    }
+
+    // Compute averages
+    for (const role of Object.values(byRole)) {
+      role.avgScore = role.scores.length > 0
+        ? (role.scores.reduce((a, b) => a + b, 0) / role.scores.length).toFixed(1)
+        : '—';
+    }
+
+    const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
+
+    console.log(`\n## Token Usage Report\n`);
+    console.log(`**Mission total:** ${fmt(missionTotal)} tokens across ${log.length} subagent runs\n`);
+
+    console.log(`### By Phase\n`);
+    console.log(`| Phase | Tokens | Runs | Avg/Run |`);
+    console.log(`|---|---|---|---|`);
+    for (const [phase, data] of Object.entries(byPhase).sort()) {
+      const avg = data.count > 0 ? Math.round(data.tokens / data.count) : 0;
+      console.log(`| ${phase} | ${fmt(data.tokens)} | ${data.count} | ${fmt(avg)} |`);
+    }
+
+    console.log(`\n### By Role\n`);
+    console.log(`| Role | Model | Tokens | Runs | Avg/Run | Avg Score | Value |`);
+    console.log(`|---|---|---|---|---|---|---|`);
+    for (const [role, data] of Object.entries(byRole).sort()) {
+      const avg = data.count > 0 ? Math.round(data.tokens / data.count) : 0;
+      const score = data.avgScore;
+      let value = '—';
+      if (score !== '—') {
+        const ratio = parseFloat(score) / (avg / 10000); // score per 10K tokens
+        value = ratio > 1.5 ? 'great' : ratio > 0.8 ? 'ok' : 'poor';
+      }
+      console.log(`| ${role} | ${data.model} | ${fmt(data.tokens)} | ${data.count} | ${fmt(avg)} | ${score}/5 | ${value} |`);
+    }
+
+    console.log('');
+    break;
+  }
+
   case 'get': {
     const s = readState();
     const field = args[0];
@@ -177,6 +248,6 @@ switch (cmd) {
 
   default:
     console.log(`Unknown command: ${cmd}`);
-    console.log('Commands: status, phase-transition, pause, resume, log, score, failure, get');
+    console.log('Commands: status, phase-transition, pause, resume, log, score, failure, tokens, get');
     process.exit(1);
 }

@@ -474,6 +474,7 @@ Every time the state file is read, validate before proceeding:
   - `scripts/mission-state.mjs log` — full progress timeline
   - `scripts/mission-state.mjs score '<json>'` — append performance score
   - `scripts/mission-state.mjs failure '<json>'` — append failure log entry
+  - `scripts/mission-state.mjs tokens` — token usage report by phase and role
   - `scripts/mission-state.mjs get <field>` — read a field from state
   - `scripts/todo-scan.mjs [dir] [--vault <path>]` — scan code for TODO/FIXME
   - `scripts/vault-index.mjs <vault-path>` — build vault index

@@ -309,16 +309,30 @@ Retry after failure:
 - Role averaging below 3.0? → suggest upgrading model (haiku → sonnet)
 - Role averaging above 4.5? → suggest downgrading to save cost (sonnet → haiku)
 
-**Vault tracking** — if `secondBrain` is set, writes `agent-performance.md` to the vault as a living dashboard:
+**Token tracking** — every subagent's token usage is logged. Run `node scripts/mission-state.mjs tokens` for a report:
 
 ```
-| Role             | Model  | Avg  | Runs | Trend       |
-|------------------|--------|------|------|-------------|
-| Explorer         | haiku  | 3.8  | 6    | → stable    |
-| Worker           | sonnet | 4.2  | 12   | ↑ improving |
-| Security Review  | sonnet | 4.5  | 4    | ↑ improving |
-| Business Review  | sonnet | 2.8  | 4    | ↓ declining |
+## Token Usage Report
+
+**Mission total:** 1.2M tokens across 28 subagent runs
+
+### By Phase
+| Phase     | Tokens | Runs | Avg/Run |
+|-----------|--------|------|---------|
+| Architect | 134K   | 4    | 33.5K   |
+| Implement | 520K   | 12   | 43.3K   |
+| Audit     | 365K   | 8    | 45.6K   |
+| Verify    | 89K    | 4    | 22.3K   |
+
+### By Role
+| Role      | Model  | Tokens | Runs | Avg Score | Value |
+|-----------|--------|--------|------|-----------|-------|
+| Explorer  | haiku  | 67K    | 6    | 3.8/5     | great |
+| Worker    | sonnet | 342K   | 12   | 4.2/5     | ok    |
+| Biz Review| sonnet | 180K   | 4    | 2.8/5     | poor  |
 ```
+
+**Vault tracking** — if `secondBrain` is set, writes `agent-performance.md` with token budgets per phase and per role, plus value analysis (score-per-token ratio)
 
 ---
 
