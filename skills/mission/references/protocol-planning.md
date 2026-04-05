@@ -13,7 +13,13 @@ You are in the **PLANNING** phase. Produce a detailed, actionable spec using par
 ### Step 0: Load Context
 
 1. Read `CLAUDE.md` / `AGENTS.md` if present — note conventions that affect planning
-2. Read `.claude/missions/active-mission.json` — get `modelAssignment` and `constraints`
+2. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, and `secondBrain`
+3. **If `secondBrain` is set — search the vault first:**
+   - Read `.vault-index.json` from the vault directory
+   - Search the index for notes related to the mission description (by tag, title, summary)
+   - Read any matching notes — these contain prior decisions, patterns, and domain knowledge
+   - Factor vault findings into the discovery and spec. Reference vault notes with `[[wikilinks]]` in the plan.
+   - Also check for `code-todos.md` — existing TODOs/FIXMEs may be relevant to this mission
 
 ### Step 1: Parallel Codebase Discovery
 

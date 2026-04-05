@@ -8,6 +8,18 @@ argument-hint: "[description | status | skip | pause | resume | done | reset]"
 
 Orchestrate structured development workflows with distinct phases: plan, review, implement, test, audit, and verify. Each phase has a specialized protocol that controls behavior, ensuring disciplined execution.
 
+## Obsidian Integration
+
+When `secondBrain` is set in the mission state, this skill integrates with the `/obsidian` skill:
+
+- **Architect phase**: reads `.vault-index.json` first to find prior decisions, patterns, and domain knowledge relevant to the mission. References vault notes in the spec.
+- **Implement phase**: checks vault for prior decisions about files being changed. Checks `code-todos.md` for existing TODOs to address. After implementation, runs a TODO scan on changed files.
+- **Audit phase**: passes vault context (prior decisions, architecture notes) to the Business Logic reviewer. Reports leftover TODO/FIXME count.
+- **Verify phase**: checks for zero unresolved FIXMEs as a pass condition.
+- **All phases**: save outputs to the vault (discovery, plan, review notes, implementation log, audit report, verification report, decisions).
+
+**Vault-first rule**: before exploring code for architectural or design questions, search the vault index first — the answer may already be documented.
+
 ## Argument Routing
 
 Parse `$ARGUMENTS` to determine the action:

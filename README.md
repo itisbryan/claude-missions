@@ -129,7 +129,35 @@ When a mission gets complex or you need to continue tomorrow.
 # → You decide: skip it, fix manually, or let Claude retry with fresh context
 ```
 
-### 6. Index your vault for Claude to learn from
+### 6. Track TODOs across code and vault
+
+Keep work items in sync between your codebase and your second brain.
+
+```bash
+# See all open items — vault checkboxes + code TODOs in one view
+/obsidian todo
+# → Vault: 12 open items across 4 notes
+# → Codebase: 5 TODOs, 2 FIXMEs
+# → Priority: 2 FIXMEs should be addressed first
+
+# Scan code and save TODO/FIXME/HACK comments to your vault
+/obsidian todo scan
+# → Writes 01 - Projects/<project>/code-todos.md
+# → Grouped by type: FIXME (fix first) → TODO → HACK
+# → Each item is a checkbox you can track in Obsidian
+
+# Add a quick todo
+/obsidian todo add "review the caching strategy before launch"
+# → Adds to the current project note as a checkbox
+
+# After a mission — implementation phase auto-scans for leftover TODOs
+/mission build a notification system
+# → During Implement phase, after all work items:
+# →   "Found 3 TODOs and 1 FIXME in changed files"
+# →   Auto-saved to vault if secondBrain is set
+```
+
+### 7. Index your vault for Claude to learn from
 
 Turn your existing Obsidian vault into a knowledge base that Claude can query efficiently.
 
@@ -178,6 +206,9 @@ Turn your existing Obsidian vault into a knowledge base that Claude can query ef
 | `/obsidian write <title>` | Create or update a note with the right template |
 | `/obsidian read <query>` | Find and display a note |
 | `/obsidian search <query>` | Search vault content with context |
+| `/obsidian todo` | Show all open items across vault + code |
+| `/obsidian todo scan` | Scan codebase for TODO/FIXME, save to vault |
+| `/obsidian todo add <item>` | Add a todo to the current project note |
 | `/obsidian daily` | Append to today's daily note |
 | `/obsidian link <from> <to>` | Add a wikilink between two notes |
 | `/obsidian audit` | Check for broken links, orphans, stale notes |

@@ -13,8 +13,12 @@ Conduct a thorough code audit using 5 parallel specialist reviewers, each with a
 
 ### Step 0: Load Context
 
-1. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, and the approved plan
+1. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, and the approved plan
 2. Collect the list of files changed during the Implement phase
+3. **If `secondBrain` is set:**
+   - Read `.vault-index.json` — find any prior decision records or architecture notes related to changed files
+   - Pass relevant vault context to the Business Logic reviewer (so it can check against documented decisions, not just the current spec)
+   - After audit, scan changed files for new TODO/FIXME and include count in the audit report
 
 ### Step 1: Parallel Specialist Review
 

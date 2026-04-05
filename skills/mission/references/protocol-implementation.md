@@ -16,8 +16,12 @@ Implement the approved plan as part of an orchestrated mission.
 ### Step 0: Load Context
 
 1. Re-read `CLAUDE.md` in the project root
-2. Read `.claude/missions/active-mission.json` — get `modelAssignment` and `constraints`
+2. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, and `secondBrain`
 3. Review the approved plan from Architect/Review phases
+4. **If `secondBrain` is set:**
+   - Read `.vault-index.json` — check for notes related to the work items (prior implementations, decisions, patterns)
+   - Check `code-todos.md` — any existing TODOs related to files we're about to change? Address them while we're there
+   - Reference vault notes when making implementation decisions
 
 ### Step 1: Choose Execution Strategy
 
@@ -47,7 +51,16 @@ For **inline** execution, work through items sequentially:
 - Write tests, run them, confirm passing
 - Commit the logical unit
 
-### Step 3: Completion Report
+### Step 3: TODO Scan
+
+After all work items are implemented, scan the changed files for leftover `TODO:`, `FIXME:`, `HACK:`, `XXX:` comments. These are often left during implementation and should be tracked.
+
+1. Run `git diff --name-only` to get changed files
+2. Grep those files for TODO/FIXME/HACK/XXX patterns
+3. Include any findings in the completion report under "Open items"
+4. If `secondBrain` is set, run `/obsidian todo scan` to save them to the vault
+
+### Step 4: Completion Report
 
 ```
 ## Phase Complete
