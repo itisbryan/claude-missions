@@ -13,7 +13,11 @@ You are in the **BUILD** phase of a minimal mission. This phase combines impleme
 
 ## Process
 
-Re-read `CLAUDE.md` in the project root before starting. Then, for each work item from the plan:
+1. Re-read `CLAUDE.md` in the project root
+2. Read `.claude/missions/active-mission.json` — get `modelAssignment` and `constraints`
+3. If 3+ independent work items, dispatch parallel subagents with `model: modelAssignment.worker`
+
+For each work item from the plan:
 
 1. Read the relevant existing code
 2. Implement following existing patterns
@@ -72,14 +76,4 @@ If you cannot complete a work item:
 
 ## Phase Transition
 
-Once all work items are implemented, tested, and you have presented the completion report:
-
-1. Read the mission state from `.claude/missions/active-mission.json`
-2. Mark the current phase as done: set `status: "done"` and `completedAt` to current ISO timestamp
-3. Set the next phase as active: set `status: "active"` and `startedAt` to current ISO timestamp
-4. Add a progress log entry: `{ "timestamp": "...", "type": "phase_complete", "detail": "Build phase complete" }`
-5. Write the updated state back to the file
-6. Update the current phase Task to `completed` via TaskUpdate
-7. Update the next phase Task to `in_progress` via TaskUpdate
-8. Read `references/protocol-verification.md`
-9. Continue with the Verify phase (respecting autonomy level)
+Once all work items are implemented and tested, follow the steps in `references/protocol-phase-transition.md`.

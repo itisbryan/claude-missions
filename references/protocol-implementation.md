@@ -1,80 +1,77 @@
 # Implementation Protocol
 
-You are implementing work as part of an orchestrated mission. Follow this protocol exactly.
+Implement the approved plan as part of an orchestrated mission.
 
-## Implementation Rules
+## Rules
 
-- **Follow CLAUDE.md.** Re-read it before starting — it overrides generic conventions.
-- **Follow existing patterns.** Match the codebase's style, naming, and architecture.
-- **Commit incrementally.** Each logical unit of change gets its own commit.
-- **No scope creep.** Implement exactly what the spec says. If you spot improvements, note them but don't add them.
-- **Test as you go.** Write tests alongside implementation, not as an afterthought.
-- **You are in a git worktree** (if one was set up during mission start). All commits go to the mission branch — do not touch the default branch.
+- **Follow CLAUDE.md** — re-read before starting, it overrides generic conventions
+- **Follow existing patterns** — match codebase style, naming, architecture
+- **Commit incrementally** — one commit per logical unit
+- **No scope creep** — implement exactly what the spec says
+- **Test as you go** — write tests alongside implementation
+- **Worktree** — if set up, all commits go to the mission branch
 
 ## Process
 
-1. Re-read `CLAUDE.md` in the project root — honor all conventions, tooling preferences, and constraints.
-2. Review the approved plan from the Architect/Review phases.
-3. Assess the work items and choose an execution strategy:
+### Step 0: Load Context
 
-   | Strategy | When to use |
-   |----------|-------------|
-   | **Inline** | 1-3 small items with dependencies between them |
-   | **Parallel subagents** | 3+ items that touch non-overlapping files with no shared dependencies |
-   | **Serial subagents** | 3+ items with dependencies; each agent gets fresh context for one unit |
+1. Re-read `CLAUDE.md` in the project root
+2. Read `.claude/missions/active-mission.json` — get `modelAssignment` and `constraints`
+3. Review the approved plan from Architect/Review phases
 
-   For **parallel subagents**, give each agent:
-   - The plan (or the specific work item's goal, files, approach, verification)
-   - The CLAUDE.md contents
-   - The worktree path (so they commit to the right branch)
-   - Instruction: "implement only this work item, run tests, commit"
+### Step 1: Choose Execution Strategy
 
-4. Execute — for each work item (inline or via subagent):
-   - Read the relevant existing code first
-   - Implement following existing patterns
-   - Write tests for the new code
-   - Run tests to confirm they pass
-   - Commit the logical unit
+| Strategy | When | Model |
+|----------|------|-------|
+| **Inline** | 1-3 small items with dependencies | Current session model |
+| **Parallel subagents** | 3+ items, non-overlapping files, no shared deps | `modelAssignment.worker` |
+| **Serial subagents** | 3+ items with dependencies, fresh context each | `modelAssignment.worker` |
 
-## Completion Report
+### Step 2: Execute
 
-When all work is done, report:
+For **parallel/serial subagents**, dispatch each with `model: modelAssignment.worker`:
+```
+Work item: [goal]
+Files: [exact paths]
+Approach: [from plan]
+Verification: [how to confirm]
+CLAUDE.md summary: [one-line key conventions]
+Constraints: [mission constraints]
+
+Implement this work item only. Follow existing patterns. Write tests. Run tests. Commit when passing.
+```
+
+For **inline** execution, work through items sequentially:
+- Read relevant existing code
+- Implement following existing patterns
+- Write tests, run them, confirm passing
+- Commit the logical unit
+
+### Step 3: Completion Report
 
 ```
 ## Phase Complete
 
 ### What was implemented
-- [bullet list of concrete changes]
+- [changes]
 
 ### Files changed
-- [path]: [what changed and why]
+- [path]: [what and why]
 
 ### What was verified
-- [test results, manual checks]
+- [test results]
 
 ### Concerns or risks
-- [anything the reviewer should pay attention to]
+- [anything notable]
 ```
 
 ## Failure Handling
 
-If you cannot complete the current work:
-
-1. Document what you tried and why it failed
-2. Revert any partial changes that would leave the codebase in a broken state
-3. Report the failure with as much diagnostic detail as possible
-4. Do NOT silently skip or move to the next phase
+1. Document what was tried and why it failed
+2. Revert partial changes that would break the codebase
+3. Report with diagnostic detail
+4. Do NOT silently skip to the next phase
 
 ## Phase Transition
 
-Once all implementation work is complete and you have presented your completion report:
-
-1. Read the mission state from `.claude/missions/active-mission.json`
-2. Mark the current phase as done: set `status: "done"` and `completedAt` to current ISO timestamp
-3. Set the next phase as active: set `status: "active"` and `startedAt` to current ISO timestamp
-4. Add a progress log entry: `{ "timestamp": "...", "type": "phase_complete", "detail": "Implement phase complete" }`
-5. Write the updated state back to the file
-6. Update the current phase Task to `completed` via TaskUpdate
-7. Update the next phase Task to `in_progress` via TaskUpdate
-8. Read the next phase's protocol from the skill's `references/` directory
-9. Continue with the new phase (respecting autonomy level — if low, pause and wait for user)
+Follow the steps in `references/protocol-phase-transition.md`.

@@ -1,80 +1,64 @@
 # Audit Protocol — Systematic Code Review
 
-You are conducting a thorough code audit using parallel specialist reviewers.
+Conduct a thorough code audit using parallel specialist reviewers.
 
-## Severity Classification
+## Severity
 
-- **P0 — Critical:** Security vulnerabilities, data loss, crashes in production. Must fix before merge.
-- **P1 — High:** Logic errors, race conditions, missing error handling. Should fix before merge.
-- **P2 — Medium:** Performance issues, code smells, missing edge cases. Fix if time permits.
-- **P3 — Low:** Style nits, naming suggestions, minor improvements. Track for later.
+- **P0 Critical:** Security vulns, data loss, crashes. Must fix.
+- **P1 High:** Logic errors, race conditions, missing error handling. Should fix.
+- **P2 Medium:** Performance, code smells, missing edge cases. Fix if time permits.
+- **P3 Low:** Style nits, naming, minor improvements. Track for later.
 
 ## Process
 
+### Step 0: Load Context
+
+1. Read `.claude/missions/active-mission.json` — get `modelAssignment` and `constraints`
+2. Collect the list of files changed during the Implement phase
+
 ### Step 1: Parallel Specialist Review
 
-Launch **3 reviewer subagents in parallel**, each with a specific lens. Give each the list of changed files and the mission description.
+Launch **3 reviewer subagents in parallel** using `model: modelAssignment.reviewer`. Pass only the changed file list and mission description — not the full plan.
 
-**Reviewer 1 — Correctness & Safety:**
+**Reviewer 1 — Correctness & Safety** `(model: modelAssignment.reviewer)`:
 ```
-Review these files for mission "[description]": [list changed files]
+Mission: "[description]"
+Changed files: [list]
 
-Focus exclusively on:
-- Logic errors: does the code do what the spec says?
-- Null/undefined safety: unguarded access, missing checks
-- Edge cases: empty inputs, boundary values, max sizes, invalid data
-- Error handling: are errors caught, propagated, and surfaced correctly?
-- State consistency: are mutations atomic? can state become corrupted?
-- Off-by-one errors, incorrect comparisons, wrong operators
-
-For each issue: quote the exact code, explain the bug with a concrete failure scenario, classify P0-P3, suggest the fix.
+Check: logic correctness vs spec, null/undefined safety, edge cases (empty/boundary/max), error handling, state consistency, off-by-one errors.
+For each issue: quote code, explain bug with failure scenario, classify P0-P3, suggest fix.
 ```
 
-**Reviewer 2 — Security & Async:**
+**Reviewer 2 — Security & Async** `(model: modelAssignment.reviewer)`:
 ```
-Review these files for mission "[description]": [list changed files]
+Mission: "[description]"
+Changed files: [list]
 
-Focus exclusively on:
-- Security: injection vectors (SQL, XSS, command), input validation, auth checks, path traversal, secret exposure
-- Async correctness: unawaited promises, race conditions on shared state, missing finally/cleanup blocks
-- Concurrency: deadlock potential, lock ordering issues
-- External calls: missing timeouts, unbounded retries, missing error handling for network failures
-- Rate limiting: are public-facing endpoints protected?
-
-For each issue: quote the exact code, explain the risk with a concrete attack/failure scenario, classify P0-P3, suggest the fix.
+Check: injection vectors (SQL/XSS/command), input validation, auth checks, path traversal, secret exposure, unawaited promises, race conditions, missing cleanup/finally, missing timeouts, rate limiting.
+For each issue: quote code, explain risk with attack/failure scenario, classify P0-P3, suggest fix.
 ```
 
-**Reviewer 3 — Performance & Architecture:**
+**Reviewer 3 — Performance & Architecture** `(model: modelAssignment.reviewer)`:
 ```
-Review these files for mission "[description]": [list changed files]
+Mission: "[description]"
+Changed files: [list]
 
-Focus exclusively on:
-- Performance: N+1 queries, unbounded loops over large datasets, missing indexes, unnecessary re-computation
-- Memory: unclosed resources, growing caches, retained closures causing leaks
-- Architecture: circular dependencies, single responsibility violations, inconsistent patterns vs. rest of codebase
-- Dead code: commented-out blocks, unreachable branches, unused imports
-- Naming: are identifiers descriptive and consistent with the domain?
-
-For each issue: quote the exact code, explain the performance/architecture problem, classify P0-P3, suggest the fix.
+Check: N+1 queries, unbounded loops, missing indexes, memory leaks, unclosed resources, circular deps, SRP violations, inconsistent patterns, dead code, naming.
+For each issue: quote code, explain problem, classify P0-P3, suggest fix.
 ```
 
-### Step 2: Synthesize Findings
+### Step 2: Synthesize
 
-After all 3 reviewers complete:
-
-1. **Merge** findings by file and line — if multiple reviewers flagged the same issue, merge into one finding at the highest severity
-2. **Deduplicate** — identical findings from different lenses become one
-3. **Resolve contradictions** — if reviewers disagree on severity, use the higher one and note the disagreement
+1. **Merge** — same file+line flagged by multiple reviewers → one finding at highest severity
+2. **Deduplicate** — identical findings become one
+3. **Resolve contradictions** — use higher severity, note disagreement
 4. **Sort** — P0 → P1 → P2 → P3, then by file
 
-### Step 3: Fix P0 and P1 Issues
+### Step 3: Fix P0 and P1
 
-Fix all P0 and P1 findings before proceeding. For each fix:
-- Make the change
-- Verify the fix addresses the issue
-- Note what was changed in the audit report
+Fix all P0/P1 findings. For each: make the change, verify it, note in report.
 
-## Output Format
+## Output
 
 ```
 ## Audit Report
@@ -82,41 +66,30 @@ Fix all P0 and P1 findings before proceeding. For each fix:
 ### P0 — Critical
 1. **[Title]** (file:line)
    - Code: `[snippet]`
-   - Issue: [explanation with concrete failure scenario]
-   - Fix: [replacement code]
-   - Reviewers: [which agents flagged this]
+   - Issue: [failure scenario]
+   - Fix: [code]
+   - Flagged by: [which reviewers]
 
 ### P1 — High
 [...]
 
-### P2 — Medium (fix if time permits)
+### P2 — Medium (noted)
 [...]
 
-### P3 — Low (track for later)
+### P3 — Low (noted)
 [...]
 
 ### Summary
-- P0: [count] fixed | P1: [count] fixed | P2: [count] noted | P3: [count] noted
-- Verdict: [PASS / PASS WITH NOTES / FAIL — requires fixes]
+- P0: [n] fixed | P1: [n] fixed | P2: [n] noted | P3: [n] noted
+- Verdict: [PASS / PASS WITH NOTES / FAIL]
 ```
 
 ## Rules
 
-- Every finding MUST have evidence (the code snippet). No vague "this looks wrong."
-- If all reviewers find zero issues, explicitly confirm what was checked and why it's clean.
-- P0 and P1 findings MUST be fixed before the mission can proceed.
-- Do not rubber-stamp. If the code is bad, say so clearly.
+- Every finding MUST have evidence (code snippet). No vague claims.
+- If zero issues found, confirm what was checked and why it's clean.
+- P0/P1 MUST be fixed before proceeding.
 
 ## Phase Transition
 
-Once the audit is complete, all P0/P1 issues are fixed, and you have presented your audit report:
-
-1. Read the mission state from `.claude/missions/active-mission.json`
-2. Mark the current phase as done: set `status: "done"` and `completedAt` to current ISO timestamp
-3. Set the next phase as active: set `status: "active"` and `startedAt` to current ISO timestamp
-4. Add a progress log entry: `{ "timestamp": "...", "type": "phase_complete", "detail": "Audit phase complete" }`
-5. Write the updated state back to the file
-6. Update the current phase Task to `completed` via TaskUpdate
-7. Update the next phase Task to `in_progress` via TaskUpdate
-8. Read the next phase's protocol from the skill's `references/` directory
-9. Continue with the new phase (respecting autonomy level — if low, pause and wait for user)
+Follow the steps in `references/protocol-phase-transition.md`.

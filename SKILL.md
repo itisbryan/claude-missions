@@ -58,6 +58,19 @@ If a template is selected, apply its default mode and autonomy. Skip Questions 2
 **Question 4 — Constraints (optional):**
 Ask: "Any constraints or out-of-scope boundaries? (e.g., 'don't touch auth module', 'no new dependencies'). Press enter to skip."
 
+**Question 5 — Model Assignment:**
+Present the default model mappings and let the user customize. These control which Claude model runs each subagent role, balancing cost vs. capability:
+
+| Role | Default | Used in | Why |
+|------|---------|---------|-----|
+| Explorer | haiku | Architect: 3 parallel discovery agents | Fast, cheap codebase scanning |
+| Planner | opus | Architect: spec writing; Review: plan review | Strong reasoning for planning |
+| Worker | sonnet | Implement: parallel code subagents | Good balance of speed and quality |
+| Reviewer | sonnet | Audit: 3 parallel code reviewers | Thorough but cost-efficient |
+| Verifier | sonnet | Verify: test + lint runner | Needs to run tools reliably |
+
+Use AskUserQuestion to show these defaults and let the user override any role. Accept "defaults" to skip customization.
+
 ### 3. Read Project Instructions & Set Up Worktree
 
 **Read CLAUDE.md (if present):**
@@ -103,6 +116,13 @@ Full state schema:
   "autonomy": "low|medium|high",
   "template": "feature|bugfix|refactor|investigation|custom",
   "constraints": "<optional user-supplied constraints, or null>",
+  "modelAssignment": {
+    "explorer": "haiku",
+    "planner": "opus",
+    "worker": "sonnet",
+    "reviewer": "sonnet",
+    "verifier": "sonnet"
+  },
   "phases": [ ... ],
   "paused": false,
   "pauseHistory": [],

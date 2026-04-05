@@ -26,14 +26,4 @@ If the user requests changes:
 
 ## Phase Transition
 
-Once the user explicitly approves:
-
-1. Read the mission state from `.claude/missions/active-mission.json`
-2. Mark the current phase as done: set `status: "done"` and `completedAt` to current ISO timestamp
-3. Set the next phase as active: set `status: "active"` and `startedAt` to current ISO timestamp
-4. Add a progress log entry: `{ "timestamp": "...", "type": "phase_complete", "detail": "Review Plan phase complete" }`
-5. Write the updated state back to the file
-6. Update the current phase Task to `completed` via TaskUpdate
-7. Update the next phase Task to `in_progress` via TaskUpdate
-8. Read the next phase's protocol from the skill's `references/` directory
-9. Continue with the new phase (respecting autonomy level — if low, pause and wait for user)
+Once the user approves, follow the steps in `references/protocol-phase-transition.md`.

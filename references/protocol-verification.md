@@ -73,12 +73,8 @@ If an assertion cannot be tested:
 
 ## Phase Transition
 
-Once verification is complete and you have presented your verification report:
+This is the **final phase**. Once verification is complete:
 
-1. Read the mission state from `.claude/missions/active-mission.json`
-2. Mark the current phase as done: set `status: "done"` and `completedAt` to current ISO timestamp
-3. Set `completedAt` on the mission state itself (this is the final phase)
-4. Add a progress log entry: `{ "timestamp": "...", "type": "mission_complete", "detail": "Mission complete — [verdict]" }`
-5. Write the updated state back to the file
-6. Update the current phase Task to `completed` via TaskUpdate
-7. Present a final mission summary: what was built, total elapsed time, and the verification verdict
+1. Follow the steps in `references/protocol-phase-transition.md` (this will set `completedAt` on the mission since there's no next phase)
+2. Use `mission_complete` as the progress log type instead of `phase_complete`
+3. Present a final mission summary: what was built, total elapsed time, and the verification verdict
