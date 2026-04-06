@@ -223,20 +223,20 @@ Context compaction can happen at any time — after a subagent returns, between 
 
 **Rule: re-read state before every decision.** Specifically:
 
-1. **After every subagent returns** — run `node scripts/mission-state.mjs get phases` to know where you are. Don't assume you remember which work item was being processed.
+1. **After every subagent returns** — run `node ~/.claude/skills/mission/scripts/mission-state.mjs get phases` to know where you are. Don't assume you remember which work item was being processed.
 2. **Before every phase transition** — re-read the full state file. Compaction may have removed the setup context (template, constraints, model assignment).
 3. **Before dispatching a subagent** — re-read `failureLog` and `performanceLog` from state. Don't rely on conversation memory for attempt counts or scores.
-4. **If you feel disoriented** — run `node scripts/mission-state.mjs status`. The state file is the single source of truth.
+4. **If you feel disoriented** — run `node ~/.claude/skills/mission/scripts/mission-state.mjs status`. The state file is the single source of truth.
 
 The state file + scripts make the orchestrator resilient to compaction. Even if 100% of conversation context is lost, the mission can continue from the state file alone.
 
 ### After Every Subagent Returns
 
-1. **Re-read state**: `node scripts/mission-state.mjs get phases` — confirm which phase is active, which work item is current
+1. **Re-read state**: `node ~/.claude/skills/mission/scripts/mission-state.mjs get phases` — confirm which phase is active, which work item is current
 2. Evaluate the subagent's output using `references/protocol-scoring.md`
 3. Score quality (1-5), completeness (1-5), efficiency (1-5)
 4. Write specific, actionable feedback
-5. Log the score: `node scripts/mission-state.mjs score '<json>'`
+5. Log the score: `node ~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'`
 6. Feed scores into the next subagent's prompt
 
 See `references/protocol-scoring.md` for the full rubric.
@@ -468,17 +468,17 @@ Every time the state file is read, validate before proceeding:
 - The state file is the single source of truth. Always read before modifying, write after every change.
 - **Only the orchestrator writes to the state file.** Subagents return results; the orchestrator updates state. This prevents race conditions.
 - **Use scripts for deterministic operations** to save tokens. Run these via Bash instead of doing the work yourself:
-  - `scripts/mission-state.mjs status` — formatted mission status
-  - `scripts/mission-state.mjs phase-transition` — advance to next phase atomically
-  - `scripts/mission-state.mjs pause` / `resume` — toggle pause
-  - `scripts/mission-state.mjs log` — full progress timeline
-  - `scripts/mission-state.mjs score '<json>'` — append performance score
-  - `scripts/mission-state.mjs failure '<json>'` — append failure log entry
-  - `scripts/mission-state.mjs tokens` — token usage report by phase and role
-  - `scripts/mission-state.mjs get <field>` — read a field from state
-  - `scripts/todo-scan.mjs [dir] [--vault <path>]` — scan code for TODO/FIXME
-  - `scripts/vault-index.mjs <vault-path>` — build vault index
-  - `scripts/vault-audit.mjs <vault-path>` — check vault health
+  - `~/.claude/skills/mission/scripts/mission-state.mjs status` — formatted mission status
+  - `~/.claude/skills/mission/scripts/mission-state.mjs phase-transition` — advance to next phase atomically
+  - `~/.claude/skills/mission/scripts/mission-state.mjs pause` / `resume` — toggle pause
+  - `~/.claude/skills/mission/scripts/mission-state.mjs log` — full progress timeline
+  - `~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'` — append performance score
+  - `~/.claude/skills/mission/scripts/mission-state.mjs failure '<json>'` — append failure log entry
+  - `~/.claude/skills/mission/scripts/mission-state.mjs tokens` — token usage report by phase and role
+  - `~/.claude/skills/mission/scripts/mission-state.mjs get <field>` — read a field from state
+  - `~/.claude/skills/obsidian/scripts/todo-scan.mjs [dir] [--vault <path>]` — scan code for TODO/FIXME
+  - `~/.claude/skills/obsidian/scripts/vault-index.mjs <vault-path>` — build vault index
+  - `~/.claude/skills/obsidian/scripts/vault-audit.mjs <vault-path>` — check vault health
 - Each protocol file in `references/` is self-contained with its own completion criteria and phase transition instructions.
 - Never skip the Review/approval gate — it exists to prevent wasted implementation effort.
 - If `handoff.md` exists but state file is missing, offer to reconstruct state from the handoff document or reset.

@@ -390,9 +390,9 @@ Use these scripts via Bash for deterministic operations instead of doing the wor
 
 | Script | What it does | Tokens saved |
 |---|---|---|
-| `scripts/vault-index.mjs <vault>` | Build `.vault-index.json` — scans all files, extracts frontmatter, builds tag/link indexes | Avoids reading every note (~50-100K tokens for large vaults) |
-| `scripts/todo-scan.mjs [dir] [--vault <path>]` | Grep for TODO/FIXME/HACK, format output, optionally write to vault | Avoids LLM grepping + formatting (~5-10K tokens) |
-| `scripts/vault-audit.mjs <vault>` | Check broken links, orphans, empty notes, stale items | Avoids reading every note + checking links (~50K tokens) |
+| `~/.claude/skills/obsidian/scripts/vault-index.mjs <vault>` | Build `.vault-index.json` — scans all files, extracts frontmatter, builds tag/link indexes | Avoids reading every note (~50-100K tokens for large vaults) |
+| `~/.claude/skills/obsidian/scripts/todo-scan.mjs [dir] [--vault <path>]` | Grep for TODO/FIXME/HACK, format output, optionally write to vault | Avoids LLM grepping + formatting (~5-10K tokens) |
+| `~/.claude/skills/obsidian/scripts/vault-audit.mjs <vault>` | Check broken links, orphans, empty notes, stale items | Avoids reading every note + checking links (~50K tokens) |
 
 **Always prefer scripts over manual work.** The LLM should focus on reasoning (what to write, what decisions to make) — not on scanning, counting, or formatting.
 
@@ -400,13 +400,13 @@ Use these scripts via Bash for deterministic operations instead of doing the wor
 
 | Task | Use script | Use LLM |
 |---|---|---|
-| Build vault index | `vault-index.sh` | — |
-| Scan for TODOs | `todo-scan.sh` | — |
-| Audit vault health | `vault-audit.sh` | Interpret results, suggest fixes |
+| Build vault index | `vault-index.mjs` | — |
+| Scan for TODOs | `todo-scan.mjs` | — |
+| Audit vault health | `vault-audit.mjs` | Interpret results, suggest fixes |
 | Write a note | — | Classify type, generate content, add links |
 | Search vault | Read `.vault-index.json` | Interpret results, decide what to read |
-| Phase transition | `mission-state.sh phase-transition` | — |
-| Score a subagent | `mission-state.sh score` | Evaluate quality, write feedback |
+| Phase transition | `mission-state.mjs phase-transition` | — |
+| Score a subagent | `mission-state.mjs score` | Evaluate quality, write feedback |
 
 ## Vault-First Rule
 
