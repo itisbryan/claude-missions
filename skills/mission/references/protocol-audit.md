@@ -27,7 +27,8 @@ Always run this step first. Compaction may have removed earlier context.
 
 Launch **5 reviewer subagents in parallel**. Pass each the changed file list, mission description, and the approved plan's validation assertions.
 
-**Reviewer 1 — Business Logic** `(model: modelAssignment.business_reviewer)`:
+**Reviewer 1 — Business Logic**
+Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.business_reviewer from state>`.
 ```
 Mission: "[description]"
 Plan/spec assertions: [paste validation assertions from plan]
@@ -45,7 +46,8 @@ You are a business logic reviewer. Check ONLY:
 For each issue: quote code, reference the spec requirement it violates, classify P0-P3, suggest fix.
 ```
 
-**Reviewer 2 — Security** `(model: modelAssignment.security_reviewer)`:
+**Reviewer 2 — Security**
+Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.security_reviewer from state>`.
 ```
 Mission: "[description]"
 Changed files: [list]
@@ -64,7 +66,8 @@ You are a security reviewer. Check ONLY:
 For each issue: quote code, explain the attack scenario step by step, classify P0-P3, suggest fix.
 ```
 
-**Reviewer 3 — Edge Cases & Error Handling** `(model: modelAssignment.edge_case_reviewer)`:
+**Reviewer 3 — Edge Cases & Error Handling**
+Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.edge_case_reviewer from state>`.
 ```
 Mission: "[description]"
 Changed files: [list]
@@ -83,7 +86,8 @@ You are an edge case reviewer. Check ONLY:
 For each issue: quote code, describe the exact input that triggers the bug, classify P0-P3, suggest fix.
 ```
 
-**Reviewer 4 — Async & Concurrency** `(model: modelAssignment.reviewer)`:
+**Reviewer 4 — Async & Concurrency**
+Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.reviewer from state>`.
 ```
 Mission: "[description]"
 Changed files: [list]
@@ -101,7 +105,8 @@ You are an async/concurrency reviewer. Check ONLY:
 For each issue: quote code, describe the timing/ordering that triggers the bug, classify P0-P3, suggest fix.
 ```
 
-**Reviewer 5 — Performance & Architecture** `(model: modelAssignment.reviewer)`:
+**Reviewer 5 — Performance & Architecture**
+Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.reviewer from state>`.
 ```
 Mission: "[description]"
 Changed files: [list]

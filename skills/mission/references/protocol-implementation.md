@@ -36,7 +36,7 @@ Always run this step — even if you think you already know the state. Compactio
 
 ### Step 2: Execute
 
-For **parallel/serial subagents**, dispatch each with `model: modelAssignment.worker`:
+For **parallel/serial subagents**, dispatch each using `subagent_type: "general-purpose"` and `model: <value of modelAssignment.worker from state>`:
 ```
 Work item: [goal]
 Files: [exact paths]

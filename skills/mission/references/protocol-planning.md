@@ -26,9 +26,10 @@ Always run this step first. Compaction may have removed earlier context.
 
 ### Step 1: Parallel Codebase Discovery
 
-Launch **3 Explore subagents in parallel** using the `modelAssignment.explorer` model. Keep prompts focused — pass only a one-line CLAUDE.md summary, not the full file.
+Launch **3 Explore subagents in parallel**. Keep prompts focused — pass only a one-line CLAUDE.md summary, not the full file.
 
-**Agent 1 — Structure & Architecture** `(model: modelAssignment.explorer)`:
+**Agent 1 — Structure & Architecture**
+Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.explorer from state>`.
 ```
 Mission: "[description]" | Project: [root path]
 CLAUDE.md summary: [one-line summary of key conventions]
@@ -37,7 +38,8 @@ Find: project structure, tech stack, frameworks, architecture patterns, naming c
 Return: stack, architecture, key files, conventions — bullet points only.
 ```
 
-**Agent 2 — Domain & Data** `(model: modelAssignment.explorer)`:
+**Agent 2 — Domain & Data**
+Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.explorer from state>`.
 ```
 Mission: "[description]" | Project: [root path]
 CLAUDE.md summary: [one-line summary]
@@ -46,7 +48,8 @@ Find: domain models/schemas/types relevant to mission, database patterns, API ro
 Return: relevant models, routes, data patterns, code to extend — bullet points only.
 ```
 
-**Agent 3 — Testing & Quality** `(model: modelAssignment.explorer)`:
+**Agent 3 — Testing & Quality**
+Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.explorer from state>`.
 ```
 Mission: "[description]" | Project: [root path]
 CLAUDE.md summary: [one-line summary]
