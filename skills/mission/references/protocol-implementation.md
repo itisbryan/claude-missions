@@ -4,7 +4,7 @@ Implement the approved plan as part of an orchestrated mission.
 
 ## Rules
 
-- **Follow CLAUDE.md** — re-read before starting, it overrides generic conventions
+- **Follow the project instructions file** (`CLAUDE.md`, `AGENTS.md`, `amp.md`, etc.) — re-read before starting, it overrides generic conventions
 - **Follow existing patterns** — match codebase style, naming, architecture
 - **Commit incrementally** — one commit per logical unit
 - **No scope creep** — implement exactly what the spec says
@@ -18,7 +18,7 @@ Implement the approved plan as part of an orchestrated mission.
 Always run this step — even if you think you already know the state. Compaction may have removed earlier context.
 
 1. Run `node scripts/mission-state.mjs status` — confirm you're in the Implement phase
-2. Re-read `CLAUDE.md` in the project root
+2. Re-read the project instructions file (`CLAUDE.md`, `AGENTS.md`, `amp.md`, or similar) in the project root
 3. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`, `performanceLog`
 4. Review the approved plan from Architect/Review phases
 5. **If `secondBrain` is set:**
@@ -36,13 +36,16 @@ Always run this step — even if you think you already know the state. Compactio
 
 ### Step 2: Execute
 
-For **parallel/serial subagents**, dispatch each using `subagent_type: "general-purpose"` and `model: <value of modelAssignment.worker from state>`:
+For **parallel/serial subagents**, dispatch each as a general-purpose implementation subagent with `model: <modelAssignment.worker>`:
+
+> **Dispatch note:** Claude Code: `subagent_type: "general-purpose"`; Codex/OpenCode/Amp: use your tool's standard subagent mechanism.
+
 ```
 Work item: [goal]
 Files: [exact paths]
 Approach: [from plan]
 Verification: [how to confirm]
-CLAUDE.md summary: [one-line key conventions]
+Project instructions summary: [one-line key conventions]
 Constraints: [mission constraints]
 
 Implement this work item only. Follow existing patterns. Write tests. Run tests. Commit when passing.

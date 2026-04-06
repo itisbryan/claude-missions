@@ -25,10 +25,12 @@ Always run this step first. Compaction may have removed earlier context.
 
 ### Step 1: Parallel Specialist Review
 
-Launch **5 reviewer subagents in parallel**. Pass each the changed file list, mission description, and the approved plan's validation assertions.
+Launch **5 read-only reviewer subagents in parallel**. Pass each the changed file list, mission description, and the approved plan's validation assertions.
+
+> **Dispatch note:** Use your tool's read-only/exploration subagent mechanism for all reviewers. Claude Code: `subagent_type: "Explore"`; Codex/OpenCode/Amp: use equivalent read-only agent mode. Pass the role-specific model from `modelAssignment`.
 
 **Reviewer 1 — Business Logic**
-Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.business_reviewer from state>`.
+Dispatch with `model: <modelAssignment.business_reviewer>`.
 ```
 Mission: "[description]"
 Plan/spec assertions: [paste validation assertions from plan]
@@ -47,7 +49,7 @@ For each issue: quote code, reference the spec requirement it violates, classify
 ```
 
 **Reviewer 2 — Security**
-Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.security_reviewer from state>`.
+Dispatch with `model: <modelAssignment.security_reviewer>`.
 ```
 Mission: "[description]"
 Changed files: [list]
@@ -67,7 +69,7 @@ For each issue: quote code, explain the attack scenario step by step, classify P
 ```
 
 **Reviewer 3 — Edge Cases & Error Handling**
-Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.edge_case_reviewer from state>`.
+Dispatch with `model: <modelAssignment.edge_case_reviewer>`.
 ```
 Mission: "[description]"
 Changed files: [list]
@@ -87,7 +89,7 @@ For each issue: quote code, describe the exact input that triggers the bug, clas
 ```
 
 **Reviewer 4 — Async & Concurrency**
-Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.reviewer from state>`.
+Dispatch with `model: <modelAssignment.reviewer>`.
 ```
 Mission: "[description]"
 Changed files: [list]
@@ -106,7 +108,7 @@ For each issue: quote code, describe the timing/ordering that triggers the bug, 
 ```
 
 **Reviewer 5 — Performance & Architecture**
-Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.reviewer from state>`.
+Dispatch with `model: <modelAssignment.reviewer>`.
 ```
 Mission: "[description]"
 Changed files: [list]

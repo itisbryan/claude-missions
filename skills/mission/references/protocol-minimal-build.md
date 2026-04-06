@@ -4,7 +4,7 @@ You are in the **BUILD** phase of a minimal mission. This phase combines impleme
 
 ## Rules
 
-- **Follow CLAUDE.md.** Re-read it before starting — it overrides generic conventions.
+- **Follow the project instructions file** (`CLAUDE.md`, `AGENTS.md`, `amp.md`, etc.). Re-read it before starting — it overrides generic conventions.
 - **Follow existing patterns.** Match the codebase's style, naming, and architecture.
 - **Commit incrementally.** Each logical unit of change gets its own commit.
 - **No scope creep.** Implement exactly what the plan says.
@@ -15,7 +15,7 @@ You are in the **BUILD** phase of a minimal mission. This phase combines impleme
 
 **Step 0 — Load Context (compaction-safe).** Always run first:
 1. Run `node scripts/mission-state.mjs status` — confirm you're in the Build phase
-2. Re-read `CLAUDE.md` in the project root
+2. Re-read the project instructions file (`CLAUDE.md`, `AGENTS.md`, `amp.md`, or similar) in the project root
 3. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`
 4. If 3+ independent work items, dispatch parallel subagents with `model: modelAssignment.worker`
 

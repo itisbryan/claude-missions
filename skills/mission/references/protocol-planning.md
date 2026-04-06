@@ -26,33 +26,32 @@ Always run this step first. Compaction may have removed earlier context.
 
 ### Step 1: Parallel Codebase Discovery
 
-Launch **3 Explore subagents in parallel**. Keep prompts focused — pass only a one-line CLAUDE.md summary, not the full file.
+Launch **3 read-only exploration subagents in parallel**. Keep prompts focused — pass only a one-line project instructions summary, not the full file.
+
+> **Dispatch note:** Use your tool's read-only/exploration subagent mechanism. Claude Code: `subagent_type: "Explore"`; Codex/OpenCode/Amp: use equivalent read-only agent mode. Pass `model: <modelAssignment.explorer>`.
 
 **Agent 1 — Structure & Architecture**
-Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.explorer from state>`.
 ```
 Mission: "[description]" | Project: [root path]
-CLAUDE.md summary: [one-line summary of key conventions]
+Project instructions summary: [one-line summary of key conventions]
 
 Find: project structure, tech stack, frameworks, architecture patterns, naming conventions, config files.
 Return: stack, architecture, key files, conventions — bullet points only.
 ```
 
 **Agent 2 — Domain & Data**
-Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.explorer from state>`.
 ```
 Mission: "[description]" | Project: [root path]
-CLAUDE.md summary: [one-line summary]
+Project instructions summary: [one-line summary]
 
 Find: domain models/schemas/types relevant to mission, database patterns, API routes/endpoints in the affected area, external integrations, data flow.
 Return: relevant models, routes, data patterns, code to extend — bullet points only.
 ```
 
 **Agent 3 — Testing & Quality**
-Dispatch using `subagent_type: "Explore"` and `model: <value of modelAssignment.explorer from state>`.
 ```
 Mission: "[description]" | Project: [root path]
-CLAUDE.md summary: [one-line summary]
+Project instructions summary: [one-line summary]
 
 Find: test framework, test directory structure, test patterns (unit/integration/fixtures/mocks), CI config, linting rules, similar test examples.
 Return: test patterns to follow, example files to mirror, quality requirements — bullet points only.

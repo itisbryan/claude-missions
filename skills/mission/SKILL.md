@@ -72,18 +72,20 @@ If a template is selected, apply its default mode and autonomy. Skip Questions 2
 Ask: "Any constraints or out-of-scope boundaries? (e.g., 'don't touch auth module', 'no new dependencies'). Press enter to skip."
 
 **Question 5 — Model Assignment:**
-Present the default model mappings and let the user customize. These control which Claude model runs each subagent role, balancing cost vs. capability:
+Present the default model mappings and let the user customize. These control which model runs each subagent role, balancing cost vs. capability.
 
-| Role | Default | Used in | Why |
-|------|---------|---------|-----|
-| Explorer | haiku | Architect: 3 parallel discovery agents | Fast, cheap codebase scanning |
-| Planner | opus | Architect: spec writing; Review: plan review | Strong reasoning for planning |
-| Worker | sonnet | Implement/Build: parallel code subagents | Good balance of speed and quality |
-| Business Reviewer | sonnet | Audit: spec alignment + business logic | Catches missed requirements |
-| Security Reviewer | sonnet | Audit: injection, auth, secrets, exposure | Dedicated security lens |
-| Edge Case Reviewer | sonnet | Audit: boundaries, nulls, partial failures | Catches what happy-path misses |
-| Reviewer | sonnet | Audit: async/concurrency + perf/architecture | Remaining audit lenses |
-| Verifier | sonnet | Verify: test + lint runner | Needs to run tools reliably |
+> **Model names are provider-specific.** The defaults below assume Claude (Anthropic). Adjust for your tool: OpenAI/Codex → `gpt-4o-mini` / `gpt-4o` / `o3`; Google → `gemini-2.0-flash` / `gemini-2.5-pro`; Amp → use your configured model names. Enter any valid model name your tool supports.
+
+| Role | Default (Claude) | Tier | Used in | Why |
+|------|---------|------|---------|-----|
+| Explorer | haiku | Fast/cheap | Architect: 3 parallel discovery agents | Fast, cheap codebase scanning |
+| Planner | opus | Powerful | Architect: spec writing; Review: plan review | Strong reasoning for planning |
+| Worker | sonnet | Balanced | Implement/Build: parallel code subagents | Good balance of speed and quality |
+| Business Reviewer | sonnet | Balanced | Audit: spec alignment + business logic | Catches missed requirements |
+| Security Reviewer | sonnet | Balanced | Audit: injection, auth, secrets, exposure | Dedicated security lens |
+| Edge Case Reviewer | sonnet | Balanced | Audit: boundaries, nulls, partial failures | Catches what happy-path misses |
+| Reviewer | sonnet | Balanced | Audit: async/concurrency + perf/architecture | Remaining audit lenses |
+| Verifier | sonnet | Balanced | Verify: test + lint runner | Needs to run tools reliably |
 
 Use AskUserQuestion to show these defaults and let the user override any role. Accept "defaults" to skip customization.
 
@@ -98,8 +100,15 @@ If a path is provided:
 
 ### 3. Read Project Instructions & Set Up Worktree
 
-**Read CLAUDE.md (if present):**
-Check for a `CLAUDE.md` file in the project root and any parent directories. This file contains project-specific instructions, conventions, and constraints that override generic behavior. Apply everything in it throughout the mission.
+**Read the project instructions file (if present):**
+Check the project root and any parent directories for a tool-specific instructions file. Read whichever is present (in priority order):
+- `CLAUDE.md` — Claude Code
+- `AGENTS.md` — Codex, OpenCode, and other OpenAI-compatible tools
+- `amp.md` — Amp
+- `.cursor/rules` — Cursor
+- Any other agent config file your tool uses
+
+This file contains project-specific instructions, conventions, and constraints that override generic behavior. Apply everything in it throughout the mission. When protocol files say "project instructions file", they mean whichever file was found here.
 
 **Set up a git worktree (recommended for standard mode):**
 Use the `git-worktree` skill to create an isolated branch for the mission:
@@ -274,33 +283,33 @@ Total attempts ≥ 6? ──yes──→  HARD STOP: mark work item as blocker, 
         ↓ no
 Attempt < 3 (this session)?  ──yes──→  Spawn new subagent (different approach)
         ↓ no
-Escalate to Opus debug agent (model: opus) with full failure log
+Escalate to a **powerful debug agent** (use `modelAssignment.planner` — your most capable model) with full failure log
         ↓
-Opus succeeds? ──yes──→  Continue to next work item
+Debug agent succeeds? ──yes──→  Continue to next work item
         ↓ no
 Auto-generate handoff.md → Pause mission → Inform user
 ```
 
 ### Guards Against Infinite Loops
 
-- **Per-work-item ceiling:** Max **3 attempts per session** + 1 Opus escalation. This is enforced by counting `attempts` in the `failureLog` entry for this work item.
+- **Per-work-item ceiling:** Max **3 attempts per session** + 1 powerful-model escalation. This is enforced by counting `attempts` in the `failureLog` entry for this work item.
 - **Cross-session ceiling:** Max **6 total attempts** across ALL sessions for any single work item. If a handoff resumes and the same item has already been tried 6 times total, STOP — do not retry. Mark the work item as a **blocker** and ask the user: "This item has failed 6 times across sessions. Skip it (`/mission skip`), fix it manually, or abort?"
-- **Autonomy override:** The failure/handoff loop **always pauses** after Opus fails, regardless of autonomy level. Even on High autonomy, exhausted retries force a pause. This prevents runaway loops.
+- **Autonomy override:** The failure/handoff loop **always pauses** after the debug agent fails, regardless of autonomy level. Even on High autonomy, exhausted retries force a pause. This prevents runaway loops.
 - **Only the orchestrator writes state:** Subagents never write to `active-mission.json`. They return results to the orchestrator, which is the single writer. This prevents race conditions when parallel subagents run.
 
 ### How it works step by step
 
 1. **Before dispatching**, orchestrator reads `failureLog` for this work item:
    - If total attempts ≥ 6 → HARD STOP, ask user
-   - If attempts this session ≥ 3 → skip to Opus escalation
+   - If attempts this session ≥ 3 → skip to powerful-model escalation
 2. **Orchestrator dispatches a subagent** for the work item
 3. **Subagent returns** success or failure
 4. **Orchestrator receives the result** and decides:
    - **Success** → log it, move to next work item
    - **Failure, attempt 1-2** → log the error and approach to `failureLog`, spawn a new subagent with instructions: "Previous attempts failed: [details]. Do NOT repeat these approaches."
-   - **Failure, attempt 3** → log it, spawn an Opus debug agent with the full failure history
-   - **Opus succeeds** → mark `resolved: true`, continue
-   - **Opus fails** → auto-write `handoff.md`, pause mission, inform user
+   - **Failure, attempt 3** → log it, spawn a powerful debug agent (`modelAssignment.planner`) with the full failure history
+   - **Debug agent succeeds** → mark `resolved: true`, continue
+   - **Debug agent fails** → auto-write `handoff.md`, pause mission, inform user
 5. **New session** runs `/mission` → orchestrator reads state + `handoff.md` → checks total attempt count before retrying
 
 ### What subagents know
@@ -308,7 +317,7 @@ Auto-generate handoff.md → Pause mission → Inform user
 Subagents receive:
 - The work item goal, files, approach
 - Previous failure details (so they don't repeat)
-- CLAUDE.md summary and constraints
+- Project instructions file summary and constraints
 
 Subagents do NOT:
 - Track their own attempt count
@@ -459,7 +468,7 @@ Every time the state file is read, validate before proceeding:
 1. **File exists?** If not → "No active mission" (or offer to reconstruct from `handoff.md` if that exists)
 2. **Valid JSON?** If parse fails → report the error, suggest `/mission reset`
 3. **Required fields present?** Check: `description`, `mode`, `phases` (array with ≥1 entry), `autonomy`, `startedAt`. If any missing → report and suggest reset
-4. **modelAssignment complete?** For standard mode, all 8 roles must be present. For minimal, at least `explorer`, `planner`, `worker`, `verifier`. If a role is missing → fill it with `"sonnet"` as fallback and warn the user
+4. **modelAssignment complete?** For standard mode, all 8 roles must be present. For minimal, at least `explorer`, `planner`, `worker`, `verifier`. If a role is missing → fill it with the user's balanced/worker model (e.g., `"sonnet"` for Claude, `"gpt-4o"` for OpenAI) as fallback and warn the user
 5. **Exactly one active phase?** If zero → mission may be complete (check `completedAt`) or stuck (suggest reset). If more than one → set the first active one as the real active phase, mark others as pending
 6. **Phase order valid?** Done phases must come before active, active before pending. If out of order → warn and suggest reset
 
