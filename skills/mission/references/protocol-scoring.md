@@ -8,7 +8,7 @@ Score after every subagent returns:
 - Explore agents (Architect phase)
 - Worker agents (Implement/Build phase)
 - Reviewer agents (Audit phase)
-- Opus debug agents (failure escalation)
+- Powerful debug agents (failure escalation)
 
 ## Scoring Rubric
 
@@ -155,12 +155,12 @@ After 3+ scores for a role, compute the trend:
 ### Model Recommendations
 
 If a role consistently scores below 3.0 across 3+ runs:
-- Suggest upgrading the model for that role (e.g., haiku → sonnet for explorer)
-- Report: "Explorer agents (haiku) have averaged 2.4/5 over 4 runs. Consider upgrading to sonnet."
+- Suggest upgrading the model for that role to the next tier (e.g., fast → balanced for explorer)
+- Report: "Explorer agents have averaged 2.4/5 over 4 runs. Consider upgrading to a more capable model for this role."
 
 If a role consistently scores above 4.5:
-- Suggest downgrading to save cost (e.g., sonnet → haiku if it's overkill)
-- Report: "Worker agents (sonnet) have averaged 4.8/5 over 6 runs. Haiku might suffice for this project."
+- Suggest downgrading to save cost (e.g., balanced → fast if it's overkill)
+- Report: "Worker agents have averaged 4.8/5 over 6 runs. A faster/cheaper model might suffice for this project."
 
 If token usage is disproportionate to quality:
 - Report: "Business Reviewer used 45K tokens (avg) but scored 2.8/5. High cost, low value — switch model or tighten prompt."
@@ -195,9 +195,9 @@ updated: 2026-04-05
 - Worst value: Business Reviewer (180K tokens, 2.8/5 score — high cost, low quality)
 
 ## Recommendations
-- Business Reviewer: upgrade to opus or tighten prompt — 180K tokens for 2.8/5 is poor ROI
+- Business Reviewer: upgrade to a more powerful model or tighten prompt — 180K tokens for 2.8/5 is poor ROI
 - Explorer: add "trace middleware chain" to prompt — recurring blind spot
-- Worker: consider haiku for simple work items — 4.2/5 average suggests sonnet may be overkill for some tasks
+- Worker: consider a faster/cheaper model for simple work items — 4.2/5 average suggests the current model may be overkill for some tasks
 
 ## Recent Scores
 [last 10 entries with feedback and token usage]
