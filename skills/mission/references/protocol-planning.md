@@ -30,6 +30,17 @@ Launch **3 read-only exploration subagents in parallel**. Keep prompts focused �
 
 > **Dispatch note:** Use your tool's read-only/exploration subagent mechanism. Claude Code: `subagent_type: "Explore"`; Codex/OpenCode/Amp: use equivalent read-only agent mode. Pass `model: <modelAssignment.explorer>`.
 
+Before dispatching each Scout, fetch lessons:
+```bash
+LESSONS=$(node "$MISSION_SCRIPT" lessons Scout)
+```
+If `LESSONS` is not `[]`, prepend to that agent's prompt:
+```
+Lessons from prior missions (Scout has been underperforming recently):
+- <lesson.text>
+Keep them in mind, but focus on the work at hand.
+```
+
 **Agent 1 — Structure & Architecture**
 ```
 Mission: "[description]" | Project: [root path]
@@ -58,6 +69,36 @@ Return: test patterns to follow, example files to mirror, quality requirements �
 ```
 
 After all 3 complete, synthesize: merge overlapping findings, flag contradictions, note gaps.
+
+### Step 1.5 — Score explorer outputs (batch)
+
+After all 3 Explore subagents return, score each on 3 dimensions (1–5):
+- **quality** (output correctness/depth), **completeness** (coverage of the ask), **efficiency** (signal-to-noise)
+- composite = quality×0.5 + completeness×0.3 + efficiency×0.2
+- verdict: 4.5+ outstanding · 3.5+ solid · 2.5+ needs_improvement · 1.5+ poor · else failed
+- **feedback: ≤20 words, one sentence, actionable** (not "good job")
+
+Batch all scores into one call:
+
+```bash
+node "$MISSION_SCRIPT" score-batch '[
+  {
+    "agent": "explorer-1", "role": "explorer", "model": "<modelAssignment.explorer>",
+    "phase": "Architect", "task": "Structure & Architecture",
+    "scores": {"quality":4,"completeness":3,"efficiency":5,"composite":3.9},
+    "usage": {"totalTokens":0,"toolUses":0,"durationMs":0},
+    "verdict": "solid",
+    "feedback": "Missed the middleware chain — trace request lifecycle next run."
+  },
+  { ... },
+  { ... }
+]'
+```
+
+If `$MISSION_SCRIPT` is unset, use `~/.claude/skills/mission/scripts/mission-state.mjs`.
+See `references/protocol-cross-tool.md` for portability conventions.
+
+Feed prior scores into Step 2's spec-writing context using the feed-forward templates in `protocol-scoring.md`.
 
 ### Step 2: Write the Spec
 
@@ -90,6 +131,10 @@ Order by dependency. Identify shared foundations first.
 
 Ask: "Does this capture everything? Any changes before I proceed?"
 Iterate until user says "approve", "go", "lgtm", or equivalent.
+
+**User signal hooks at this boundary:**
+- If the user requests plan revisions: `node "$MISSION_SCRIPT" user-signal '{"role":"planner","phase":"Architect","type":"plan_revision","context":"<brief description of requested change>"}'`
+- If the user approves on the **first try** (no prior revision requests this phase): `node "$MISSION_SCRIPT" user-signal '{"role":"planner","phase":"Architect","type":"approval_first_try"}'`
 
 **READ ONLY. Do not edit files until approved.**
 

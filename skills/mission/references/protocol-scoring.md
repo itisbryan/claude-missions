@@ -204,3 +204,58 @@ updated: 2026-04-05
 ```
 
 This note becomes a living performance + cost dashboard.
+
+---
+
+## Gamification Appendix
+
+### XP Formula
+
+```
+xp = round(composite * 10) + VERDICT_BONUS[verdict]
+```
+
+| Verdict | Bonus |
+|---|---|
+| outstanding | +20 |
+| solid | +10 |
+| needs_improvement | 0 |
+| poor | −5 |
+| failed | −10 |
+
+Example: composite 4.2, verdict solid → round(42) + 10 = **52 XP**
+
+### Streak Definition
+
+`scoringStreak` increments by 1 each time a `SCORING_PHASES` phase transitions with ≥1 score logged. It resets to 0 if a scoring phase transitions with 0 scores. `longestStreak` tracks the highest value reached.
+
+`SCORING_PHASES = { Architect, Plan, Implement, Build, Audit }` — Review Plan, Test, and Verify don't dispatch scoring-worthy subagents.
+
+### Persona Map
+
+See `protocol-personas.md` for the canonical role → class → emoji table.
+
+Feed-forward templates should lead with the class vocative:
+
+```
+Scout, your last sweep scored 3.9/5. Key gap: missed the middleware chain.
+Maintain your scouting pace, but this run trace the request lifecycle explicitly.
+```
+
+### Scorecard Fields
+
+Printed to stderr at the end of the final phase transition:
+
+| Field | Source |
+|---|---|
+| XP earned | `gamification.totalXp` (split: orch + user signals + rating) |
+| Scoring streak | `gamification.longestStreak` |
+| Verdicts | `gamification.verdictCounts` |
+| Party roster | `gamification.byRole` entries with `runs` count |
+| MVP | role with highest `avgComposite` (min 2 runs) |
+| Needs training | role with lowest `avgComposite` (min 2 runs) |
+| User signals | count of positive/negative from `userSignals` array |
+| User rating | `userRating.rating` / `skipReason` |
+| Total tokens | sum of `performanceLog[].usage.totalTokens` |
+
+Career section is populated from `~/.claude/mission-profile.json` (merged at final transition).

@@ -37,6 +37,19 @@ Launch **5 read-only reviewer subagents in parallel**. Pass each the changed fil
 
 > **Dispatch note:** Use your tool's read-only/exploration subagent mechanism for all reviewers. Claude Code: `subagent_type: "Explore"`; Codex/OpenCode/Amp: use equivalent read-only agent mode. Pass the role-specific model from `modelAssignment`.
 
+Before dispatching each reviewer, fetch class lessons. Reviewer-1 (Cleric):
+```bash
+LESSONS=$(node "$MISSION_SCRIPT" lessons Cleric)
+```
+Reviewer-2 (Rogue): `lessons Rogue` · Reviewer-3 (Ranger): `lessons Ranger` · Reviewers 4-5 (Druid): `lessons Druid`
+
+If `LESSONS` is not `[]`, prepend to that reviewer's prompt:
+```
+Lessons from prior missions (this class has been underperforming recently):
+- <lesson.text>
+Keep them in mind, but focus on the review at hand.
+```
+
 **Reviewer 1 — Business Logic**
 Dispatch with `model: <modelAssignment.business_reviewer>`.
 ```
@@ -143,6 +156,24 @@ For each issue: quote code, explain the performance/architecture impact, classif
 Pre-detected mechanical findings (already logged, do not re-report unless disputing severity): [paste prefilter JSON.findings]
 ```
 
+### Step 1.5 — Score reviewer outputs (batch)
+
+After all reviewer subagents return, score each on 3 dimensions (1–5):
+- **quality** (findings accuracy/depth), **completeness** (coverage of their lens), **efficiency** (signal-to-noise ratio)
+- composite = quality×0.5 + completeness×0.3 + efficiency×0.2
+- verdict: 4.5+ outstanding · 3.5+ solid · 2.5+ needs_improvement · 1.5+ poor · else failed
+- **feedback: ≤20 words, actionable**
+
+```bash
+node "$MISSION_SCRIPT" score-batch '[
+  {"agent":"reviewer-1","role":"business_reviewer","model":"<modelAssignment.business_reviewer>","phase":"Audit","task":"Business Logic review","scores":{"quality":4,"completeness":4,"efficiency":4,"composite":4.0},"usage":{"totalTokens":0,"toolUses":0,"durationMs":0},"verdict":"solid","feedback":"Good spec alignment check; missed the pagination edge case."},
+  {"agent":"reviewer-2","role":"security_reviewer","model":"<modelAssignment.security_reviewer>","phase":"Audit","task":"Security review","scores":{"quality":5,"completeness":4,"efficiency":5,"composite":4.7},"usage":{"totalTokens":0,"toolUses":0,"durationMs":0},"verdict":"outstanding","feedback":"Found the SQL injection path and the missing auth check."},
+  {"agent":"reviewer-3","role":"edge_case_reviewer","model":"<modelAssignment.edge_case_reviewer>","phase":"Audit","task":"Edge Cases review","scores":{"quality":3,"completeness":3,"efficiency":4,"composite":3.2},"usage":{"totalTokens":0,"toolUses":0,"durationMs":0},"verdict":"needs_improvement","feedback":"Null inputs not tested — add boundary checks to next audit prompt."},
+  {"agent":"reviewer-4","role":"reviewer","model":"<modelAssignment.reviewer>","phase":"Audit","task":"Async & Concurrency review","scores":{"quality":4,"completeness":4,"efficiency":3,"composite":3.8},"usage":{"totalTokens":0,"toolUses":0,"durationMs":0},"verdict":"solid","feedback":"Race condition found; verbose output — trim next run."},
+  {"agent":"reviewer-5","role":"reviewer","model":"<modelAssignment.reviewer>","phase":"Audit","task":"Performance & Architecture review","scores":{"quality":4,"completeness":3,"efficiency":4,"composite":3.7},"usage":{"totalTokens":0,"toolUses":0,"durationMs":0},"verdict":"solid","feedback":"Good architectural observations; missed the N+1 query."}
+]'
+```
+
 ### Step 2: Synthesize
 
 1. **Merge** — same file+line flagged by multiple reviewers → one finding at highest severity
@@ -189,6 +220,10 @@ Fix all P0/P1 findings. For each: make the change, verify it, note in report.
 - P0: [n] fixed | P1: [n] fixed | P2: [n] noted | P3: [n] noted
 - Verdict: [PASS / PASS WITH NOTES / FAIL]
 ```
+
+**User signal hooks at this boundary:**
+- If the user disputes a P0/P1 finding and requests downgrade (per dispute): `node "$MISSION_SCRIPT" user-signal '{"role":"<reviewer role that raised it>","phase":"Audit","type":"dispute_finding","context":"<brief description>"}'`
+- If the user accepts the audit verdict as-is: `node "$MISSION_SCRIPT" user-signal '{"role":"reviewer","phase":"Audit","type":"audit_approved"}'` (distribute across reviewer roles used this phase by running it once per reviewer role)
 
 ## Rules
 
