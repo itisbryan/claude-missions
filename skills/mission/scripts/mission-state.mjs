@@ -93,7 +93,7 @@ const RATING_XP = { 5: 20, 4: 10, 3: 0, 2: -10, 1: -20 };
 
 // ── Global profile helpers ───────────────────────────────────────────────────
 function profilePath() {
-  if (process.env.MISSION_PROFILE_PATH) return process.env.MISSION_PROFILE_PATH;
+  if (process.env.MISSION_PROFILE_PATH) return path.resolve(process.env.MISSION_PROFILE_PATH);
   return path.join(os.homedir(), '.claude', 'mission-profile.json');
 }
 
@@ -172,7 +172,10 @@ function mergeMissionIntoProfile(state) {
     const t = sig.type || 'unknown';
     profile.userSignalsCareer.byType[t] = (profile.userSignalsCareer.byType[t] || 0) + 1;
   }
-  profile.userRatings = profile.userRatings || { count: 0, sum: 0, recent: [] };
+  profile.userRatings = profile.userRatings || {};
+  profile.userRatings.count  = profile.userRatings.count  || 0;
+  profile.userRatings.sum    = profile.userRatings.sum    || 0;
+  profile.userRatings.recent = profile.userRatings.recent || [];
   if (state.userRating?.rating) {
     profile.userRatings.count += 1;
     profile.userRatings.sum += state.userRating.rating;
