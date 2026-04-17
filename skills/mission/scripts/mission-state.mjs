@@ -58,6 +58,11 @@ const PERSONAS = {
   verifier:           { class: 'Paladin', emoji: '🛡️' },
 };
 function personaFor(role) { return PERSONAS[role] || { class: role, emoji: '❓' }; }
+function roleLabel(role) { return String(role).replace(/_/g, ' '); }
+function roleForClass(cls) {
+  const entry = Object.entries(PERSONAS).find(([, p]) => p.class === cls);
+  return entry ? entry[0] : cls;
+}
 
 const SCORING_PHASES = new Set(['Architect', 'Plan', 'Implement', 'Build', 'Audit']);
 
@@ -243,7 +248,7 @@ function applyScoreEntry(state, entry) {
   const ps = g.byPhase[phase];
   ps.scored += 1; ps.xp += xp;
   ps.verdicts.push(VERDICT_EMOJI[v] || '?');
-  ps.party.push(`${personaFor(role).emoji} ${className}`);
+  ps.party.push(`${personaFor(role).emoji} ${roleLabel(role)}`);
   if ((entry.scores?.composite || 0) < LOW_SCORE_THRESHOLD && entry.feedback) {
     try {
       const profile = readProfile();
@@ -272,8 +277,7 @@ function printScorecard(state, profile) {
   const verdictLine = ['outstanding','solid','needs_improvement','poor','failed']
     .filter(k => vc[k]).map(k => `${VERDICT_EMOJI[k]} x${vc[k]}`).join('  ') || 'none';
   const partyParts = Object.entries(g.byRole || {}).map(([role, r]) => {
-    const { emoji, class: cls } = personaFor(role);
-    return `${emoji} ${cls}${r.runs > 1 ? ` x${r.runs}` : ''}`;
+    return `${personaFor(role).emoji} ${roleLabel(role)}${r.runs > 1 ? ` x${r.runs}` : ''}`;
   });
   const us = state.userSignals || [];
   const posC = us.filter(s => (s.delta||0) > 0).length;
@@ -289,8 +293,8 @@ function printScorecard(state, profile) {
   se.write(`  Scoring streak: ${g.longestStreak || 0} phases (longest this mission)\n`);
   se.write(`  Verdicts:       ${verdictLine}\n`);
   se.write(`  Party roster:   ${partyParts.join(' · ') || 'none'}\n`);
-  if (mvp) { const r = g.byRole[mvp]; se.write(`  MVP:            ${personaFor(mvp).emoji} ${personaFor(mvp).class} — avg ${r.avgComposite?.toFixed(1)}/5 over ${r.runs} runs, ${r.xp} XP\n`); }
-  if (weakest && weakest !== mvp) { const r = g.byRole[weakest]; se.write(`  Needs training: ${personaFor(weakest).emoji} ${personaFor(weakest).class} — avg ${r.avgComposite?.toFixed(1)}/5 over ${r.runs} runs\n`); }
+  if (mvp) { const r = g.byRole[mvp]; se.write(`  MVP:            ${personaFor(mvp).emoji} ${roleLabel(mvp)} — avg ${r.avgComposite?.toFixed(1)}/5 over ${r.runs} runs, ${r.xp} XP\n`); }
+  if (weakest && weakest !== mvp) { const r = g.byRole[weakest]; se.write(`  Needs training: ${personaFor(weakest).emoji} ${roleLabel(weakest)} — avg ${r.avgComposite?.toFixed(1)}/5 over ${r.runs} runs\n`); }
   se.write(`  User signals:   ${us.length ? `+${posC} / -${negC}` : 'none this mission'}\n`);
   se.write(`  User rating:    ${ratingLine}\n`);
   se.write(`  Total tokens:   ${totalTokens.toLocaleString()}\n`);
@@ -300,7 +304,7 @@ function printScorecard(state, profile) {
     se.write(`  Total XP:       ${profile.totalXp.toLocaleString()}   (+${missionXp} this mission)\n`);
     se.write(`  Best streak:    ${profile.bestStreak} phases\n`);
     const topEntry = Object.entries(profile.byClass || {}).sort(([,a],[,b])=>(b.xp||0)-(a.xp||0))[0];
-    if (topEntry) { const [cls, slot] = topEntry; const { emoji } = Object.values(PERSONAS).find(p => p.class === cls) || { emoji: '?' }; se.write(`  Top class:      ${emoji} ${cls} — ${slot.xp} XP career\n`); }
+    if (topEntry) { const [cls, slot] = topEntry; const { emoji } = Object.values(PERSONAS).find(p => p.class === cls) || { emoji: '?' }; se.write(`  Top role:       ${emoji} ${roleLabel(roleForClass(cls))} — ${slot.xp} XP career\n`); }
     const rAvg = profile.userRatings?.count ? (profile.userRatings.sum / profile.userRatings.count).toFixed(1) : '—';
     se.write(`  Avg user rating:${rAvg}/5 over ${profile.userRatings?.count || 0} rated missions\n`);
     se.write('  See full profile: node scripts/mission-state.mjs profile\n');
@@ -318,6 +322,7 @@ switch (cmd) {
     console.log(`\n## Mission: ${s.description}`);
     console.log(`**Status:** ${status}`);
     console.log(`**Mode:** ${s.mode} | **Autonomy:** ${s.autonomy} | **Template:** ${s.template || 'custom'}`);
+    if (s.worktreePath) console.log(`**Worktree:** ${s.worktreePath}`);
     console.log(`**Elapsed:** ${formatDuration(s.startedAt)}\n`);
     console.log('### Phases\n');
     for (const p of s.phases) {
@@ -355,11 +360,11 @@ switch (cmd) {
         const xpEarned = phaseEntries.reduce((a, e) => a + xpFor(e), 0);
         const badges = phaseEntries.map(e => VERDICT_EMOJI[verdictKey(e.verdict)] || '?').join('');
         const partyEmoji = phaseEntries.map(e => personaFor(e.role).emoji).join('');
-        const distinctClasses = [...new Set(phaseEntries.map(e => personaFor(e.role).class))];
+        const distinctRoles = [...new Set(phaseEntries.map(e => roleLabel(e.role)))];
         g.scoringStreak = (g.scoringStreak || 0) + 1;
         g.longestStreak = Math.max(g.longestStreak || 0, g.scoringStreak);
         process.stderr.write(`\n🎉 ${phase.name} scored: ${phaseEntries.length}/${phaseEntries.length} agents, avg ${avg.toFixed(1)}/5 ${badges}\n`);
-        process.stderr.write(`   Party: ${partyEmoji}  (${distinctClasses.join(', ')})\n`);
+        process.stderr.write(`   Party: ${partyEmoji}  (${distinctRoles.join(', ')})\n`);
         process.stderr.write(`   +${xpEarned} XP (total ${g.totalXp}) · streak ${g.scoringStreak} 🔥\n`);
         for (const role of [...new Set(phaseEntries.map(e => e.role))]) {
           const p = personaFor(role);
@@ -370,7 +375,7 @@ switch (cmd) {
           const delta = priorAvg !== null ? curAvg - priorAvg : null;
           const arrow = delta === null ? '→' : delta > 0.1 ? '↑' : delta < -0.1 ? '↓' : '→';
           const deltaStr = delta !== null ? ` (${arrow} ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} vs prior)` : ' (first run)';
-          process.stderr.write(`   ${p.emoji} ${p.class}: ${curAvg.toFixed(1)}/5${deltaStr}\n`);
+          process.stderr.write(`   ${p.emoji} ${roleLabel(role)}: ${curAvg.toFixed(1)}/5${deltaStr}\n`);
         }
         process.stderr.write('\n');
       }
@@ -589,16 +594,16 @@ switch (cmd) {
     if (!existsSync(p) && !existsSync(LEGACY_PROFILE_PATH)) { console.log('No profile yet — finish a mission to start your career.'); process.exit(0); }
     const profile = readProfile();
     const cols = Object.entries(profile.byClass || {}).sort(([,a],[,b]) => (b.xp||0)-(a.xp||0));
-    console.log('\n═══ Persona Profile (career) ═══');
+    console.log('\n═══ Mission Profile (career) ═══');
     console.log(`Missions completed: ${profile.totalMissions}        Total XP: ${profile.totalXp.toLocaleString()}        Longest streak: ${profile.bestStreak}`);
     console.log(`Projects: ${(profile.projects || []).join(', ') || 'none'}\n`);
-    console.log('Class Roster');
-    console.log('| Class     | Emoji | XP      | Runs | Avg  | Missions |');
-    console.log('|-----------|-------|---------|------|------|----------|');
+    console.log('Role Roster');
+    console.log('| Role              | Emoji | XP      | Runs | Avg  | Missions |');
+    console.log('|-------------------|-------|---------|------|------|----------|');
     for (const [cls, slot] of cols) {
       const { emoji } = Object.values(PERSONAS).find(p => p.class === cls) || { emoji: '?' };
       const avg = slot.runs > 0 ? (slot.sumComposite / slot.runs).toFixed(1) : '—';
-      console.log(`| ${cls.padEnd(9)} | ${String(emoji).padEnd(5)} | ${String(slot.xp).padStart(7)} | ${String(slot.runs).padStart(4)} | ${String(avg).padStart(4)} | ${String(slot.missions).padStart(8)} |`);
+      console.log(`| ${roleLabel(roleForClass(cls)).padEnd(17)} | ${String(emoji).padEnd(5)} | ${String(slot.xp).padStart(7)} | ${String(slot.runs).padStart(4)} | ${String(avg).padStart(4)} | ${String(slot.missions).padStart(8)} |`);
     }
     const vc = profile.verdictCounts || {};
     const verdictLine = ['outstanding','solid','needs_improvement','poor','failed'].filter(k => vc[k]).map(k => `${VERDICT_EMOJI[k]} x${vc[k]}`).join('   ') || 'none';

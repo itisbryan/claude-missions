@@ -149,12 +149,20 @@ Check the project root and any parent directories for a tool-specific instructio
 
 This file contains project-specific instructions, conventions, and constraints that override generic behavior. Apply everything in it throughout the mission. When protocol files say "project instructions file", they mean whichever file was found here.
 
-**Set up a git worktree (recommended for standard mode):**
-Use the `git-worktree` skill to create an isolated branch for the mission:
+**Set up a git worktree (auto, skippable):**
+After reading project instructions, create an isolated worktree for the mission:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT:-.}/skills/git-worktree/scripts/worktree-manager.mjs \
+  create mission/<mission-slug>
 ```
-skill: git-worktree
-```
-This keeps the default branch clean and allows parallel work without interference. Name the branch after the mission (e.g., `mission/build-user-auth`). If the user declines a worktree, proceed on a new branch or the current branch per their preference.
+
+Parse the trailing JSON line `{"worktreePath": "...", "branch": "..."}` and store
+`worktreePath` in the mission state (see §4). All subsequent phase commands run with
+`cwd: worktreePath`.
+
+If the user has declined worktree isolation in their answers to Question 2
+(autonomy/constraints), skip this step and operate on the current branch.
 
 ### 4. Create State File
 

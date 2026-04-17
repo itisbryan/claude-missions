@@ -28,10 +28,7 @@ Scout, your last sweep scored 3.9/5. Key gap: missed the middleware chain.
 Maintain your scouting pace, but this run track the request lifecycle explicitly.
 ```
 
-Class names also appear in:
-- Phase-transition gamification readout (party composition line)
-- Mission scorecard (party roster, MVP, needs-training)
-- `mission-state.mjs profile` career scoreboard
+The Mission Scorecard, phase-transition readouts, and career profile all display **role names** (left column), not class names. Class names remain available only as internal identifiers and optional agent-briefing flavor.
 
 ## Implementation
 
