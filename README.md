@@ -74,24 +74,43 @@ npx skills add itisbryan/claude-missions@obsidian
 | [Failure & Handoff](docs/failure-handoff.md) | Retry escalation, auto-handoff, cross-session continuity |
 | [Inspiration](docs/inspiration.md) | Factory.ai Droid patterns, pi-missions lineage |
 
+## Mechanical Checks
+
+Test runs, lint, TODO scans, and secret detection are handled by a zero-dependency Node script rather than the LLM — saving ~25K tokens per standard mission and cutting verification time from 30–60s to under 1s.
+
+```bash
+node ~/.claude/skills/mission/scripts/mission-checks.mjs pre-checks --json
+node ~/.claude/skills/mission/scripts/mission-checks.mjs post-implement --json
+node ~/.claude/skills/mission/scripts/mission-checks.mjs audit-prefilter --json
+```
+
+Override the discovered test/lint commands during setup (Question 6), or add a `checks` field directly to your `active-mission.json`:
+
+```json
+"checks": { "test": "pytest -x", "lint": "ruff check" }
+```
+
 ## Project Structure
 
 ```
 claude-missions/
 ├── README.md
+├── CHANGELOG.md
 ├── docs/                               # Documentation
-├── scripts/
-│   ├── vault-index.mjs                 # Build .vault-index.json
-│   ├── todo-scan.mjs                   # Scan code for TODO/FIXME
-│   ├── mission-state.mjs               # Atomic state operations
-│   └── vault-audit.mjs                 # Check vault health
 └── skills/
     ├── mission/                         # /mission skill
     │   ├── SKILL.md
-    │   └── references/
+    │   ├── references/
+    │   └── scripts/
+    │       ├── mission-state.mjs        # Atomic state operations
+    │       └── mission-checks.mjs       # Deterministic test/lint/audit checks
     └── obsidian/                        # /obsidian skill
         ├── SKILL.md
-        └── references/
+        ├── references/
+        └── scripts/
+            ├── vault-index.mjs          # Build .vault-index.json
+            ├── todo-scan.mjs            # Scan code for TODO/FIXME
+            └── vault-audit.mjs          # Check vault health
 ```
 
 ## License

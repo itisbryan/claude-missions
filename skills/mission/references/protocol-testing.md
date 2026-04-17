@@ -18,6 +18,14 @@ You are writing and running tests for all new/changed code.
 - Use the project's existing test framework and patterns
 - Run the full test suite after writing new tests — ensure nothing is broken
 
+## Running Tests
+
+After writing tests, run:
+
+    node ~/.claude/skills/mission/scripts/mission-checks.mjs pre-checks --skip lint,todos --json
+
+Read `tests.passed` / `tests.failed`. If failures, fix them before reporting.
+
 ## Output
 
 After testing is complete:

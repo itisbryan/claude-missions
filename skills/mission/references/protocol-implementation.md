@@ -47,8 +47,14 @@ Approach: [from plan]
 Verification: [how to confirm]
 Project instructions summary: [one-line key conventions]
 Constraints: [mission constraints]
+[If resuming]: Already completed: [...]. Remaining steps: [...]. Last commit: [...]. Start from the first remaining step only.
 
-Implement this work item only. Follow existing patterns. Write tests. Run tests. Commit when passing.
+After each logical step (file written, tests passing, commit made), save a checkpoint:
+  node ~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-write \
+    '{"workItem":"[goal]","completedSteps":[...],"remainingSteps":[...],"lastCommit":"<sha>","filesChanged":[...]}'
+
+When fully done, end your output with exactly:
+  <!-- SUBAGENT_DONE: {"workItem":"[goal]","filesChanged":[...],"stepsCompleted":[...]} -->
 ```
 
 For **inline** execution, work through items sequentially:
@@ -57,14 +63,13 @@ For **inline** execution, work through items sequentially:
 - Write tests, run them, confirm passing
 - Commit the logical unit
 
-### Step 3: TODO Scan
+### Step 3: Post-Implement Verification
 
-After all work items are implemented, scan the changed files for leftover `TODO:`, `FIXME:`, `HACK:`, `XXX:` comments. These are often left during implementation and should be tracked.
+Run the deterministic post-flight script:
 
-1. Run `git diff --name-only` to get changed files
-2. Grep those files for TODO/FIXME/HACK/XXX patterns
-3. Include any findings in the completion report under "Open items"
-4. If `secondBrain` is set, run `/obsidian todo scan` to save them to the vault
+    node ~/.claude/skills/mission/scripts/mission-checks.mjs post-implement --json
+
+Scoped to files changed by `git diff --name-only`. If `verdict == "fail"`, fix blockers (or revert + report per Failure Handling). Include `todos.items` in the completion report under "Open items". If `secondBrain` is set, also run `/obsidian todo scan` to persist to vault.
 
 ### Step 4: Completion Report
 
@@ -82,6 +87,12 @@ After all work items are implemented, scan the changed files for leftover `TODO:
 
 ### Concerns or risks
 - [anything notable]
+```
+
+End the report with the completion marker so the orchestrator knows the full output was received:
+
+```
+<!-- SUBAGENT_DONE: {"workItem":"[goal]","filesChanged":[...],"stepsCompleted":[...]} -->
 ```
 
 ## Failure Handling

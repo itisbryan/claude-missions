@@ -1,5 +1,7 @@
 # Autonomy Levels
 
+> **Pause gates are hard stops.** "STOP" means: do not proceed, do not pick a default, do not summarize and continue — wait for an explicit user reply. This applies to Low and Medium across all tools (Claude Code, Codex, OpenCode, Pi, etc.).
+
 ## Low — Pause after every phase
 
 - Complete one phase, then STOP and summarize what you did.

@@ -50,6 +50,8 @@ Read `.claude/missions/active-mission.json`. If an active (non-completed) missio
 
 Use AskUserQuestion to gather configuration:
 
+**If your tool doesn't have AskUserQuestion** (Codex, OpenCode, etc.): present the question and options as plain text and STOP. Wait for the user to reply with their choice before continuing. Do not pick a default and proceed.
+
 **Question 1 — Template** (read `references/templates.md` first for descriptions):
 - **Feature** — adding new functionality (Standard, Medium autonomy)
 - **Bug Fix** — diagnosing and correcting a defect (Minimal, Low autonomy)
@@ -87,9 +89,18 @@ Present the default model mappings and let the user customize. These control whi
 | Reviewer | sonnet | Balanced | Audit: async/concurrency + perf/architecture | Remaining audit lenses |
 | Verifier | sonnet | Balanced | Verify: test + lint runner | Needs to run tools reliably |
 
+> **Note:** Mechanical checks (tests, lint, TODO scan, secret detection) are now run by `scripts/mission-checks.mjs` rather than LLM agents. This saves ~25K tokens per standard mission and eliminates the Verifier model from deterministic scan work — the verifier role focuses on reasoning over script output.
+
 Use AskUserQuestion to show these defaults and let the user override any role. Accept "defaults" to skip customization.
 
-**Question 6 — Second Brain (optional):**
+**If your tool doesn't have AskUserQuestion** (Codex, OpenCode, etc.): present the model defaults as plain text and STOP. Wait for the user to reply ("defaults" or overrides) before continuing.
+
+**Question 6 — Test/Lint Commands (optional):**
+Ask: "What commands run your tests and linter? (e.g., 'test: pytest, lint: ruff check'). Press enter to auto-detect."
+
+If provided, store as `checks` in the state file: `{ "test": "<cmd>", "lint": "<cmd>" }`. `mission-checks.mjs` reads this first before auto-detection.
+
+**Question 7 — Second Brain (optional):**
 Ask: "Save mission docs to a second brain vault (e.g., Obsidian)? Provide the directory path, or press enter to skip."
 
 If a path is provided:
@@ -150,6 +161,7 @@ Full state schema:
   "autonomy": "low|medium|high",
   "template": "feature|bugfix|refactor|investigation|custom",
   "constraints": "<optional user-supplied constraints, or null>",
+  "checks": { "test": "<test command, or null>", "lint": "<lint command, or null>" },
   "secondBrain": "<path to vault directory, or null>",
   "modelAssignment": {
     "explorer": "haiku",
@@ -242,11 +254,35 @@ The state file + scripts make the orchestrator resilient to compaction. Even if 
 ### After Every Subagent Returns
 
 1. **Re-read state**: `node ~/.claude/skills/mission/scripts/mission-state.mjs get phases` — confirm which phase is active, which work item is current
-2. Evaluate the subagent's output using `references/protocol-scoring.md`
-3. Score quality (1-5), completeness (1-5), efficiency (1-5)
-4. Write specific, actionable feedback
-5. Log the score: `node ~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'`
-6. Feed scores into the next subagent's prompt
+2. **Check for completion marker** — scan the subagent's output for `<!-- SUBAGENT_DONE:`:
+   - **Marker present** → subagent completed normally. Continue to step 3.
+   - **Marker absent** → subagent hit context limit mid-task. Handle as context exhaustion (see below) — do NOT log as a failure attempt or burn retry budget.
+3. Evaluate the subagent's output using `references/protocol-scoring.md`
+4. Score quality (1-5), completeness (1-5), efficiency (1-5)
+5. Write specific, actionable feedback
+6. Log the score: `node ~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'`
+7. Clear the checkpoint: `node ~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-clear`
+8. Feed scores into the next subagent's prompt
+
+#### Context Exhaustion (missing SUBAGENT_DONE marker)
+
+```
+node ~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-read
+```
+
+If checkpoint exists → spawn a new subagent for the same work item, prepending:
+
+```
+RESUMING FROM CHECKPOINT — do not restart from scratch.
+Already completed: [checkpoint.completedSteps]
+Remaining steps:   [checkpoint.remainingSteps]
+Last commit:       [checkpoint.lastCommit]
+Files touched so far: [checkpoint.filesChanged]
+
+Continue from the first remaining step only.
+```
+
+If no checkpoint → the subagent made no progress before running out of context. Treat as attempt 1 failure and follow the normal failure escalation path.
 
 See `references/protocol-scoring.md` for the full rubric.
 
@@ -263,7 +299,7 @@ For each phase:
    - Read the next phase's protocol
 4. Apply autonomy gates:
    - **Low:** After every phase transition, STOP and summarize. Wait for user to say "continue"
-   - **Medium:** After every phase transition, briefly summarize progress. Continue unless the user intervenes
+   - **Medium:** After every phase transition, STOP. Output a 3-line progress summary, then explicitly ask: "Ready to enter [next phase]? Reply 'continue' to proceed, or 'pause' to stop." Do NOT proceed until the user replies. (This matches `autonomy-levels.md` — Medium is a hard pause-gate, not a soft one.)
    - **High:** Continue automatically through all phases
 
 When the final phase completes, set `completedAt` on the mission state and present a final summary.
@@ -485,6 +521,9 @@ Every time the state file is read, validate before proceeding:
   - `~/.claude/skills/mission/scripts/mission-state.mjs failure '<json>'` — append failure log entry
   - `~/.claude/skills/mission/scripts/mission-state.mjs tokens` — token usage report by phase and role
   - `~/.claude/skills/mission/scripts/mission-state.mjs get <field>` — read a field from state
+  - `~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-write '<json>'` — save subagent progress checkpoint
+  - `~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-read` — read checkpoint (returns null if none)
+  - `~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-clear` — delete checkpoint after successful completion
   - `~/.claude/skills/obsidian/scripts/todo-scan.mjs [dir] [--vault <path>]` — scan code for TODO/FIXME
   - `~/.claude/skills/obsidian/scripts/vault-index.mjs <vault-path>` — build vault index
   - `~/.claude/skills/obsidian/scripts/vault-audit.mjs <vault-path>` — check vault health

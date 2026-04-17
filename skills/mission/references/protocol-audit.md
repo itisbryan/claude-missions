@@ -23,6 +23,14 @@ Always run this step first. Compaction may have removed earlier context.
    - Pass relevant vault context to the Business Logic reviewer (so it can check against documented decisions, not just the current spec)
    - After audit, scan changed files for new TODO/FIXME and include count in the audit report
 
+### Step 0.5: Mechanical Pre-Filter
+
+Run the pattern detector before spawning reviewers:
+
+    node ~/.claude/skills/mission/scripts/mission-checks.mjs audit-prefilter --json
+
+The output lists pre-detected findings (hardcoded secrets, debugger statements, eval, console.log). Pass the JSON `findings` array verbatim into each reviewer's prompt under a section titled "Pre-detected mechanical findings — do NOT re-detect these, but you may dispute or downgrade them".
+
 ### Step 1: Parallel Specialist Review
 
 Launch **5 read-only reviewer subagents in parallel**. Pass each the changed file list, mission description, and the approved plan's validation assertions.
@@ -46,6 +54,8 @@ You are a business logic reviewer. Check ONLY:
 - Are there implicit assumptions about data or state that contradict the spec?
 
 For each issue: quote code, reference the spec requirement it violates, classify P0-P3, suggest fix.
+
+Pre-detected mechanical findings (already logged, do not re-report unless disputing severity): [paste prefilter JSON.findings]
 ```
 
 **Reviewer 2 — Security**
@@ -66,6 +76,8 @@ You are a security reviewer. Check ONLY:
 - Data exposure: are sensitive fields (PII, passwords) filtered from logs/responses?
 
 For each issue: quote code, explain the attack scenario step by step, classify P0-P3, suggest fix.
+
+Pre-detected mechanical findings (already logged, do not re-report unless disputing severity): [paste prefilter JSON.findings]
 ```
 
 **Reviewer 3 — Edge Cases & Error Handling**
@@ -86,6 +98,8 @@ You are an edge case reviewer. Check ONLY:
 - Off-by-one: loop bounds, pagination, array slicing, date ranges (inclusive vs exclusive)
 
 For each issue: quote code, describe the exact input that triggers the bug, classify P0-P3, suggest fix.
+
+Pre-detected mechanical findings (already logged, do not re-report unless disputing severity): [paste prefilter JSON.findings]
 ```
 
 **Reviewer 4 — Async & Concurrency**
@@ -105,6 +119,8 @@ You are an async/concurrency reviewer. Check ONLY:
 - Transaction isolation: can concurrent transactions see inconsistent state?
 
 For each issue: quote code, describe the timing/ordering that triggers the bug, classify P0-P3, suggest fix.
+
+Pre-detected mechanical findings (already logged, do not re-report unless disputing severity): [paste prefilter JSON.findings]
 ```
 
 **Reviewer 5 — Performance & Architecture**
@@ -123,6 +139,8 @@ You are a performance and architecture reviewer. Check ONLY:
 - Dead code: unreachable branches, unused imports, commented-out blocks
 
 For each issue: quote code, explain the performance/architecture impact, classify P0-P3, suggest fix.
+
+Pre-detected mechanical findings (already logged, do not re-report unless disputing severity): [paste prefilter JSON.findings]
 ```
 
 ### Step 2: Synthesize

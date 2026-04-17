@@ -15,11 +15,11 @@ You are validating the mission's deliverables against the defined validation ass
 
 ## Pre-Checks
 
-Before assertion checking:
+Run the deterministic check script first:
 
-- Run the **full test suite**. All tests must pass.
-- Run the **linter**. Zero errors required.
-- Fix any failures before proceeding to assertions.
+    node ~/.claude/skills/mission/scripts/mission-checks.mjs pre-checks --json
+
+Read `verdict`. If `"fail"`, fix listed blockers before assertions. If `"skipped"`, note in report and continue. Do not re-run tests/lint manually — the script is the source of truth.
 
 ## Evidence Requirements
 
@@ -39,8 +39,8 @@ Before assertion checking:
 ## Verification Report
 
 ### Environment
-- Test suite: [pass/fail] ([X] passed, [Y] failed)
-- Linter: [pass/fail]
+- Test suite: [pass/fail] ([tests.passed] passed, [tests.failed] failed)
+- Linter: [pass/fail] ([lint.errors] errors)
 
 ### Assertions
 

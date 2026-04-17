@@ -20,9 +20,9 @@ If the script is unavailable, do it manually:
 6. Write the updated state file
 7. Update Tasks: current phase → `completed`, next phase → `in_progress`
 8. Check autonomy level:
-   - **Low**: STOP, summarize what was done, wait for user to say "continue"
-   - **Medium**: Briefly summarize, continue unless user intervenes
-   - **High**: Continue automatically
+   - **Low**: STOP. Summarize what was done. Wait for the user to say "continue", "next", or "go". Do not proceed without an explicit reply.
+   - **Medium**: STOP. Output a 3-line summary. Ask "Ready to enter [next phase]? Reply 'continue' to proceed." Do not proceed without an explicit reply.
+   - **High**: Continue automatically. Do not pause unless a hard failure or the failure-override conditions in `autonomy-levels.md` are met.
 9. Read the next phase's protocol from `references/` and continue
 
 ## Guards

@@ -3,9 +3,10 @@
 // Usage: node mission-state.mjs <command> [args]
 // Zero dependencies
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'fs';
 
 const STATE_FILE = '.claude/missions/active-mission.json';
+const CHECKPOINT_FILE = '.claude/missions/subagent-checkpoint.json';
 
 function die(msg) { console.error(`Error: ${msg}`); process.exit(1); }
 
@@ -34,7 +35,7 @@ function formatDuration(start, end) {
 }
 
 const [cmd, ...args] = process.argv.slice(2);
-if (!cmd) { console.log('Commands: status, phase-transition, pause, resume, log, score, failure, get'); process.exit(0); }
+if (!cmd) { console.log('Commands: status, phase-transition, pause, resume, log, score, failure, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear'); process.exit(0); }
 
 switch (cmd) {
   case 'status': {
@@ -246,8 +247,51 @@ switch (cmd) {
     break;
   }
 
+  case 'checkpoint-write': {
+    const entry = JSON.parse(args[0] || '{}');
+    if (!entry.workItem) die('checkpoint-write requires a workItem field');
+    const checkpoint = {
+      workItem: entry.workItem,
+      phase: entry.phase || null,
+      completedSteps: entry.completedSteps || [],
+      remainingSteps: entry.remainingSteps || [],
+      lastCommit: entry.lastCommit || null,
+      filesChanged: entry.filesChanged || [],
+      updatedAt: now(),
+    };
+    mkdirSync('.claude/missions', { recursive: true });
+    writeFileSync(CHECKPOINT_FILE, JSON.stringify(checkpoint, null, 2));
+    console.log(`Checkpoint saved for '${checkpoint.workItem}' (${checkpoint.completedSteps.length} steps done, ${checkpoint.remainingSteps.length} remaining)`);
+    break;
+  }
+
+  case 'checkpoint-read': {
+    if (!existsSync(CHECKPOINT_FILE)) {
+      console.log('null');
+      process.exit(0);
+    }
+    try {
+      const checkpoint = JSON.parse(readFileSync(CHECKPOINT_FILE, 'utf8'));
+      console.log(JSON.stringify(checkpoint, null, 2));
+    } catch {
+      console.error('Checkpoint file is corrupted');
+      process.exit(1);
+    }
+    break;
+  }
+
+  case 'checkpoint-clear': {
+    if (existsSync(CHECKPOINT_FILE)) {
+      unlinkSync(CHECKPOINT_FILE);
+      console.log('Checkpoint cleared.');
+    } else {
+      console.log('No checkpoint to clear.');
+    }
+    break;
+  }
+
   default:
     console.log(`Unknown command: ${cmd}`);
-    console.log('Commands: status, phase-transition, pause, resume, log, score, failure, tokens, get');
+    console.log('Commands: status, phase-transition, pause, resume, log, score, failure, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear');
     process.exit(1);
 }
