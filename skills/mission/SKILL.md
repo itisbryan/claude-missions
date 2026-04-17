@@ -38,6 +38,10 @@ Parse `$ARGUMENTS` to determine the action:
 | `reset` | Clear all mission state |
 | *anything else* | Start a new mission with this as the description |
 
+> **Reset signal:** If `reset` is run while a phase is active, log a `user-signal` with `type:"reset_mid_flow"`, `role:"<current active phase's dominant role>"`, `delta:-20` **before** clearing state: `node "$MISSION_SCRIPT" user-signal '{"role":"<role>","phase":"<name>","type":"reset_mid_flow"}'`
+
+> **End-of-mission rating:** On the final phase transition, for Low/Medium autonomy: prompt the user for a 1–5 rating (use AskUserQuestion on Claude Code; plain-text STOP on other tools), then call `node "$MISSION_SCRIPT" rate-mission '{"rating":<n>}'`. For High autonomy: call `node "$MISSION_SCRIPT" rate-mission '{"skipReason":"high_autonomy"}'`. The `phase-transition` command then prints the full Mission Scorecard and merges the run into `~/.claude/mission-profile.json`.
+
 ---
 
 ## Starting a New Mission
@@ -78,16 +82,16 @@ Present the default model mappings and let the user customize. These control whi
 
 > **Model names are provider-specific.** The defaults below assume Claude (Anthropic). Adjust for your tool: OpenAI/Codex → `gpt-4o-mini` / `gpt-4o` / `o3`; Google → `gemini-2.0-flash` / `gemini-2.5-pro`; Amp → use your configured model names. Enter any valid model name your tool supports.
 
-| Role | Default (Claude) | Tier | Used in | Why |
-|------|---------|------|---------|-----|
-| Explorer | haiku | Fast/cheap | Architect: 3 parallel discovery agents | Fast, cheap codebase scanning |
-| Planner | opus | Powerful | Architect: spec writing; Review: plan review | Strong reasoning for planning |
-| Worker | sonnet | Balanced | Implement/Build: parallel code subagents | Good balance of speed and quality |
-| Business Reviewer | sonnet | Balanced | Audit: spec alignment + business logic | Catches missed requirements |
-| Security Reviewer | sonnet | Balanced | Audit: injection, auth, secrets, exposure | Dedicated security lens |
-| Edge Case Reviewer | sonnet | Balanced | Audit: boundaries, nulls, partial failures | Catches what happy-path misses |
-| Reviewer | sonnet | Balanced | Audit: async/concurrency + perf/architecture | Remaining audit lenses |
-| Verifier | sonnet | Balanced | Verify: test + lint runner | Needs to run tools reliably |
+| Role | Class | Default (Claude) | Tier | Used in | Why |
+|------|-------|---------|------|---------|-----|
+| Explorer | Scout 🔭 | haiku | Fast/cheap | Architect: 3 parallel discovery agents | Fast, cheap codebase scanning |
+| Planner | Mage 🧙 | opus | Powerful | Architect: spec writing; Review: plan review | Strong reasoning for planning |
+| Worker | Knight ⚔️ | sonnet | Balanced | Implement/Build: parallel code subagents | Good balance of speed and quality |
+| Business Reviewer | Cleric 📜 | sonnet | Balanced | Audit: spec alignment + business logic | Catches missed requirements |
+| Security Reviewer | Rogue 🗡️ | sonnet | Balanced | Audit: injection, auth, secrets, exposure | Dedicated security lens |
+| Edge Case Reviewer | Ranger 🎯 | sonnet | Balanced | Audit: boundaries, nulls, partial failures | Catches what happy-path misses |
+| Reviewer | Druid 🌿 | sonnet | Balanced | Audit: async/concurrency + perf/architecture | Remaining audit lenses |
+| Verifier | Paladin 🛡️ | sonnet | Balanced | Verify: test + lint runner | Needs to run tools reliably |
 
 > **Note:** Mechanical checks (tests, lint, TODO scan, secret detection) are now run by `scripts/mission-checks.mjs` rather than LLM agents. This saves ~25K tokens per standard mission and eliminates the Verifier model from deterministic scan work — the verifier role focuses on reasoning over script output.
 
@@ -197,6 +201,31 @@ Full state schema:
       "resolved": false
     }
   ],
+  "gamification": {
+    "totalXp": 0,
+    "scoringStreak": 0,
+    "longestStreak": 0,
+    "verdictCounts": { "outstanding": 0, "solid": 0, "needs_improvement": 0, "poor": 0, "failed": 0 },
+    "byRole": {
+      "explorer": { "xp": 0, "runs": 0, "avgComposite": 0, "sumComposite": 0, "class": "Scout" }
+    },
+    "byPhase": {
+      "Architect": { "expected": null, "scored": 0, "xp": 0, "verdicts": [], "party": [] }
+    },
+    "userSignalCounts": { "positive": 0, "negative": 0, "neutral": 0 },
+    "userRating": null
+  },
+  "userSignals": [
+    {
+      "role": "planner",
+      "phase": "Architect",
+      "type": "plan_revision",
+      "delta": -10,
+      "context": "User asked for a different library choice",
+      "timestamp": "2026-04-17T..."
+    }
+  ],
+  "userRating": null,
   "paused": false,
   "pauseHistory": [],
   "progressLog": [
@@ -263,6 +292,8 @@ The state file + scripts make the orchestrator resilient to compaction. Even if 
 6. Log the score: `node ~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'`
 7. Clear the checkpoint: `node ~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-clear`
 8. Feed scores into the next subagent's prompt
+
+**Note:** Each phase protocol also carries an inline scoring step (Step 1.5, Step 2.5, etc.) placed right next to the dispatch — this is immune to context compaction of SKILL.md. The `score-batch` command logs all scores for a phase in one Bash call.
 
 #### Context Exhaustion (missing SUBAGENT_DONE marker)
 

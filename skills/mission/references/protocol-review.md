@@ -22,6 +22,12 @@ If the user requests changes:
 3. Re-present the updated plan
 4. Wait for approval again
 
+**User signal hooks at this boundary (run after the user responds):**
+- User requests any revision: `node "$MISSION_SCRIPT" user-signal '{"role":"planner","phase":"Review Plan","type":"plan_revision","context":"<brief description of requested change>"}'`
+- User approves on the **first try** (no revision requests were made during this Review Plan phase): `node "$MISSION_SCRIPT" user-signal '{"role":"planner","phase":"Review Plan","type":"approval_first_try"}'`
+
+Run only the matching signal — not both.
+
 **DO NOT proceed to implementation without explicit approval. This gate exists for a reason.**
 
 ## Second Brain

@@ -38,6 +38,24 @@ Always run this step — even if you think you already know the state. Compactio
 
 For **parallel/serial subagents**, dispatch each as a general-purpose implementation subagent with `model: <modelAssignment.worker>`:
 
+Before dispatching each Knight (worker), fetch lessons:
+```bash
+LESSONS=$(node "$MISSION_SCRIPT" lessons Knight)
+```
+If `LESSONS` is not `[]`, prepend to that worker's prompt:
+```
+Lessons from prior missions (Knight has been underperforming recently):
+- <lesson.text>
+Keep them in mind, but focus on the work at hand.
+```
+
+**Low autonomy only:** After each work-item commit, prompt the user:
+> "Work item complete: <description>. 👍 ship it, or 👎 redo? (Add a comment after 👎 if helpful)"
+- Use AskUserQuestion if available (Claude Code). Otherwise print as plain text and STOP.
+- 👍 → `node "$MISSION_SCRIPT" user-signal '{"role":"worker","phase":"Implement","type":"work_item_thumbs_up"}'`
+- 👎 → `node "$MISSION_SCRIPT" user-signal '{"role":"worker","phase":"Implement","type":"work_item_thumbs_down","context":"<user comment>"}'`
+- Skip this prompt on Medium and High autonomy.
+
 > **Dispatch note:** Claude Code: `subagent_type: "general-purpose"`; Codex/OpenCode/Amp: use your tool's standard subagent mechanism.
 
 ```
@@ -62,6 +80,31 @@ For **inline** execution, work through items sequentially:
 - Implement following existing patterns
 - Write tests, run them, confirm passing
 - Commit the logical unit
+
+### Step 2.5 — Score worker outputs (batch)
+
+After each worker subagent returns (skip if work was executed inline in this session):
+
+Score each dispatched worker on 3 dimensions (1–5):
+- **quality** (correctness, tests pass), **completeness** (all work-item steps done), **efficiency** (focused, minimal noise)
+- composite = quality×0.5 + completeness×0.3 + efficiency×0.2
+- verdict: 4.5+ outstanding · 3.5+ solid · 2.5+ needs_improvement · 1.5+ poor · else failed
+- **feedback: ≤20 words, actionable**
+
+```bash
+node "$MISSION_SCRIPT" score-batch '[
+  {
+    "agent": "worker-1", "role": "worker", "model": "<modelAssignment.worker>",
+    "phase": "Implement", "task": "<work item description>",
+    "scores": {"quality":4,"completeness":4,"efficiency":3,"composite":3.8},
+    "usage": {"totalTokens":0,"toolUses":0,"durationMs":0},
+    "verdict": "solid",
+    "feedback": "Tests pass but committed 3 files at once — split by logical unit next run."
+  }
+]'
+```
+
+Feed scores forward into the next worker's prompt if multiple workers ran serially.
 
 ### Step 3: Post-Implement Verification
 

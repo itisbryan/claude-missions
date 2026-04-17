@@ -31,3 +31,46 @@ If the script is unavailable, do it manually:
 - **Invalid JSON**: Report parse error, suggest `/mission reset`
 - **No active phase found**: Report inconsistent state, suggest `/mission status` then `/mission reset`
 - **Phase index out of bounds**: Treat as final phase (set mission completedAt)
+
+---
+
+## Gamification & User Signal Integration
+
+The `phase-transition` script command automatically handles gamification output — the orchestrator does not need to do anything extra.
+
+### What happens on every phase transition
+
+When you run `node "$MISSION_SCRIPT" phase-transition`:
+
+- If the phase is a `SCORING_PHASES` phase (`Architect`, `Plan`, `Implement`, `Build`, `Audit`) and scores were logged → prints 🎉 praise to stderr: avg score, verdict badges, party composition, XP earned, streak, per-role trend deltas.
+- If the phase is a `SCORING_PHASES` phase and **no scores were logged** → prints ⚠️ complaint to stderr and resets streak to 0. This is a warning only — the transition still proceeds.
+- Non-scoring phases (`Review Plan`, `Test`, `Verify`) — no gamification output.
+
+### User signal gates (autonomy-aware)
+
+Only one set of signals fires per mission, determined by autonomy level:
+
+| Level | Signal | When |
+|---|---|---|
+| **Medium** | `phase_approved` (+5 split across phase roster) | User types "continue" at phase gate → `node "$MISSION_SCRIPT" user-signal '{"role":"<dominant role>","phase":"<name>","type":"phase_approved"}'` |
+| **High** | `silent_run` (+10 per class, auto-emitted) | Auto-computed at final transition if zero negative signals — script handles this internally |
+| **Low** | `work_item_thumbs_up/down` | Per work item in Implement/Build — see protocol-implementation.md |
+
+Do not fire cross-level signals — `phase_approved` does not fire on Low or High; `silent_run` does not fire on Low or Medium; thumbs signals do not fire on Medium or High.
+
+### Final phase handling
+
+On the final phase transition, the script automatically:
+1. Emits `silent_run` signals (High autonomy only, zero negative signals)
+2. Merges the mission's `gamification` block into `~/.claude/mission-profile.json`
+3. Prints the Mission Scorecard to stderr
+
+**Orchestrator responsibility for Low/Medium autonomy:** Before calling `phase-transition` on the final phase, prompt the user for a 1–5 mission rating:
+- Claude Code: use AskUserQuestion with options 1–5 and an optional comment field
+- Other tools: print the question as plain text and STOP (see `protocol-cross-tool.md`)
+
+Then call: `node "$MISSION_SCRIPT" rate-mission '{"rating": <1-5>, "comment": "<optional>"}'`
+
+For High autonomy: `node "$MISSION_SCRIPT" rate-mission '{"skipReason":"high_autonomy"}'`
+
+After `rate-mission`, call `phase-transition` — the scorecard will reflect the rating.

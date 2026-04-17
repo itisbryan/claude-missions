@@ -19,6 +19,17 @@ You are in the **BUILD** phase of a minimal mission. This phase combines impleme
 3. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`
 4. If 3+ independent work items, dispatch parallel subagents with `model: modelAssignment.worker`
 
+Before dispatching each Knight (worker), fetch lessons:
+```bash
+LESSONS=$(node "$MISSION_SCRIPT" lessons Knight)
+```
+If `LESSONS` is not `[]`, prepend to the worker's prompt:
+```
+Lessons from prior missions (Knight has been underperforming recently):
+- <lesson.text>
+Keep them in mind, but focus on the work at hand.
+```
+
 For each work item from the plan:
 
 1. Read the relevant existing code
@@ -29,6 +40,30 @@ For each work item from the plan:
    - Error path test if applicable
 4. Run tests — confirm they pass
 5. Commit the work item
+
+### Score worker outputs
+
+After each dispatched worker subagent returns (skip if work was executed inline):
+
+```bash
+node "$MISSION_SCRIPT" score-batch '[
+  {
+    "agent": "worker-1", "role": "worker", "model": "<modelAssignment.worker>",
+    "phase": "Build", "task": "<work item description>",
+    "scores": {"quality":4,"completeness":4,"efficiency":4,"composite":4.0},
+    "usage": {"totalTokens":0,"toolUses":0,"durationMs":0},
+    "verdict": "solid",
+    "feedback": "Clean implementation; add test for the error path next run."
+  }
+]'
+```
+
+**Low autonomy only:** After each work-item commit, prompt the user:
+> "Work item complete: <description>. 👍 ship it, or 👎 redo? (Add a comment after 👎 if helpful)"
+- Use AskUserQuestion if available (Claude Code). Otherwise print as plain text and STOP.
+- 👍 → `node "$MISSION_SCRIPT" user-signal '{"role":"worker","phase":"Build","type":"work_item_thumbs_up"}'`
+- 👎 → `node "$MISSION_SCRIPT" user-signal '{"role":"worker","phase":"Build","type":"work_item_thumbs_down","context":"<user comment>"}'`
+- Skip on Medium and High autonomy.
 
 ### Bug Fix Mode
 
