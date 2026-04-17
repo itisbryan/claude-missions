@@ -6,7 +6,7 @@ When the current phase's completion criteria are met, follow these steps exactly
 
 If the script is unavailable, do it manually:
 
-1. Read `.claude/missions/active-mission.json`
+1. Read `.missions/active-mission.json`
    - If the file is missing or contains invalid JSON, report the error and suggest `/mission reset`
 2. Find the current active phase in the `phases` array
 3. Mark it: `status: "done"`, `completedAt: <ISO timestamp>`
@@ -62,7 +62,7 @@ Do not fire cross-level signals — `phase_approved` does not fire on Low or Hig
 
 On the final phase transition, the script automatically:
 1. Emits `silent_run` signals (High autonomy only, zero negative signals)
-2. Merges the mission's `gamification` block into `~/.claude/mission-profile.json`
+2. Merges the mission's `gamification` block into `${XDG_CONFIG_HOME:-~/.config}/mission/profile.json`
 3. Prints the Mission Scorecard to stderr
 
 **Orchestrator responsibility for Low/Medium autonomy:** Before calling `phase-transition` on the final phase, prompt the user for a 1–5 mission rating:

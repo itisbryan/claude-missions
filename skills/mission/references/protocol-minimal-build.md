@@ -16,7 +16,7 @@ You are in the **BUILD** phase of a minimal mission. This phase combines impleme
 **Step 0 — Load Context (compaction-safe).** Always run first:
 1. Run `node scripts/mission-state.mjs status` — confirm you're in the Build phase
 2. Re-read the project instructions file (`CLAUDE.md`, `AGENTS.md`, `amp.md`, or similar) in the project root
-3. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`
+3. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`
 4. If 3+ independent work items, dispatch parallel subagents with `model: modelAssignment.worker`
 
 Before dispatching each Knight (worker), fetch lessons:

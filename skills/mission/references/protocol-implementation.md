@@ -19,7 +19,7 @@ Always run this step — even if you think you already know the state. Compactio
 
 1. Run `node scripts/mission-state.mjs status` — confirm you're in the Implement phase
 2. Re-read the project instructions file (`CLAUDE.md`, `AGENTS.md`, `amp.md`, or similar) in the project root
-3. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`, `performanceLog`
+3. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`, `performanceLog`
 4. Review the approved plan from Architect/Review phases
 5. **If `secondBrain` is set:**
    - Read `.vault-index.json` — check for notes related to the work items (prior implementations, decisions, patterns)

@@ -71,4 +71,4 @@ When you run `/mission <description>`:
 
 ## State File
 
-Mission state persists at `.claude/missions/active-mission.json`. Survives session restarts, compaction, and handoffs. Run `/mission` with no args to resume.
+Mission state persists at `.missions/active-mission.json`. Survives session restarts, compaction, and handoffs. Run `/mission` with no args to resume.

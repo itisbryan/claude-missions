@@ -50,7 +50,7 @@ function readJson(path) {
 
 function discoverCommands() {
   // 1. active-mission.json.checks
-  const mission = readJson('.claude/missions/active-mission.json');
+  const mission = readJson('.missions/active-mission.json') || readJson('.claude/missions/active-mission.json');
   if (mission?.checks?.test || mission?.checks?.lint) {
     return {
       test: mission.checks.test || null,
@@ -137,7 +137,7 @@ function getChangedFiles(since) {
 // --- Start commit from active-mission.json ---
 
 function getStartCommit() {
-  const mission = readJson('.claude/missions/active-mission.json');
+  const mission = readJson('.missions/active-mission.json') || readJson('.claude/missions/active-mission.json');
   return mission?.startCommit || null;
 }
 

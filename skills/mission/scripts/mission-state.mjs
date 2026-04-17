@@ -3,17 +3,25 @@
 // Usage: node mission-state.mjs <command> [args]
 // Zero dependencies
 
-import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, renameSync, copyFileSync } from 'fs';
 import path from 'path';
 import os from 'os';
 
-const STATE_FILE = '.claude/missions/active-mission.json';
-const CHECKPOINT_FILE = '.claude/missions/subagent-checkpoint.json';
+const STATE_FILE = '.missions/active-mission.json';
+const CHECKPOINT_FILE = '.missions/subagent-checkpoint.json';
+const LEGACY_STATE_FILE = '.claude/missions/active-mission.json';
 
 function die(msg) { console.error(`Error: ${msg}`); process.exit(1); }
 
 function readState() {
-  if (!existsSync(STATE_FILE)) die('No active mission (state file not found)');
+  if (!existsSync(STATE_FILE)) {
+    if (existsSync(LEGACY_STATE_FILE)) {
+      mkdirSync(path.dirname(STATE_FILE), { recursive: true });
+      copyFileSync(LEGACY_STATE_FILE, STATE_FILE);
+    } else {
+      die('No active mission (state file not found)');
+    }
+  }
   try { return JSON.parse(readFileSync(STATE_FILE, 'utf8')); }
   catch { die('State file is corrupted JSON. Run /mission reset.'); }
 }
@@ -92,22 +100,48 @@ const INJECT_THRESHOLD = 3.5;
 const RATING_XP = { 5: 20, 4: 10, 3: 0, 2: -10, 1: -20 };
 
 // ── Global profile helpers ───────────────────────────────────────────────────
+const LEGACY_PROFILE_PATH = path.join(os.homedir(), '.claude', 'mission-profile.json');
+
 function profilePath() {
   if (process.env.MISSION_PROFILE_PATH) return path.resolve(process.env.MISSION_PROFILE_PATH);
-  return path.join(os.homedir(), '.claude', 'mission-profile.json');
+  const xdgBase = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  return path.join(xdgBase, 'mission', 'profile.json');
 }
+
+const DEFAULT_MODEL_DEFAULTS = {
+  'claude-code': {
+    explorer: 'claude-haiku-4-5', planner: 'claude-opus-4-7', worker: 'claude-sonnet-4-6',
+    business_reviewer: 'claude-sonnet-4-6', security_reviewer: 'claude-sonnet-4-6',
+    edge_case_reviewer: 'claude-sonnet-4-6', reviewer: 'claude-sonnet-4-6', verifier: 'claude-sonnet-4-6',
+  },
+  codex: {
+    explorer: 'gpt-4o-mini', planner: 'o3', worker: 'gpt-4o',
+    business_reviewer: 'gpt-4o', security_reviewer: 'gpt-4o', edge_case_reviewer: 'gpt-4o',
+    reviewer: 'gpt-4o', verifier: 'gpt-4o-mini',
+  },
+  amp: { _note: 'user-supplied model names' },
+  opencode: { _note: 'user-supplied; provider-agnostic' },
+};
 
 function readProfile() {
   const p = profilePath();
   if (!existsSync(p)) {
-    return {
-      totalMissions: 0, totalXp: 0, bestStreak: 0,
-      firstSeenAt: now(), lastUpdatedAt: now(),
-      projects: [], byClass: {},
-      verdictCounts: { outstanding: 0, solid: 0, needs_improvement: 0, poor: 0, failed: 0 },
-      userSignalsCareer: { total: 0, positive: 0, negative: 0, byType: {} },
-      userRatings: { count: 0, sum: 0, recent: [] },
-    };
+    if (existsSync(LEGACY_PROFILE_PATH)) {
+      mkdirSync(path.dirname(p), { recursive: true });
+      copyFileSync(LEGACY_PROFILE_PATH, p);
+    } else {
+      return {
+        version: 2,
+        totalMissions: 0, totalXp: 0, bestStreak: 0,
+        firstSeenAt: now(), lastUpdatedAt: now(),
+        projects: [], byClass: {},
+        verdictCounts: { outstanding: 0, solid: 0, needs_improvement: 0, poor: 0, failed: 0 },
+        userSignalsCareer: { total: 0, positive: 0, negative: 0, byType: {} },
+        userRatings: { count: 0, sum: 0, recent: [] },
+        detectedTool: null, toolDetectedAt: null,
+        modelDefaults: DEFAULT_MODEL_DEFAULTS,
+      };
+    }
   }
   try { return JSON.parse(readFileSync(p, 'utf8')); }
   catch { die(`Global profile ${p} is corrupted. Back it up and delete to reset.`); }
@@ -275,7 +309,7 @@ function printScorecard(state, profile) {
 }
 
 const [cmd, ...args] = process.argv.slice(2);
-if (!cmd) { console.log('Commands: status, phase-transition, pause, resume, log, score, score-batch, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear'); process.exit(0); }
+if (!cmd) { console.log('Commands: status, phase-transition, pause, resume, log, score, score-batch, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults'); process.exit(0); }
 
 switch (cmd) {
   case 'status': {
@@ -552,7 +586,7 @@ switch (cmd) {
 
   case 'profile': {
     const p = profilePath();
-    if (!existsSync(p)) { console.log('No profile yet — finish a mission to start your career.'); process.exit(0); }
+    if (!existsSync(p) && !existsSync(LEGACY_PROFILE_PATH)) { console.log('No profile yet — finish a mission to start your career.'); process.exit(0); }
     const profile = readProfile();
     const cols = Object.entries(profile.byClass || {}).sort(([,a],[,b]) => (b.xp||0)-(a.xp||0));
     console.log('\n═══ Persona Profile (career) ═══');
@@ -692,7 +726,7 @@ switch (cmd) {
       filesChanged: entry.filesChanged || [],
       updatedAt: now(),
     };
-    mkdirSync('.claude/missions', { recursive: true });
+    mkdirSync('.missions', { recursive: true });
     writeFileSync(CHECKPOINT_FILE, JSON.stringify(checkpoint, null, 2));
     console.log(`Checkpoint saved for '${checkpoint.workItem}' (${checkpoint.completedSteps.length} steps done, ${checkpoint.remainingSteps.length} remaining)`);
     break;
@@ -723,8 +757,69 @@ switch (cmd) {
     break;
   }
 
+  case 'detect-tool': {
+    const confirmIdx = args.indexOf('--confirm');
+    const confirmTool = confirmIdx !== -1 ? args[confirmIdx + 1] : null;
+
+    if (confirmTool) {
+      const profile = readProfile();
+      profile.detectedTool = confirmTool;
+      profile.toolDetectedAt = now();
+      writeProfileAtomic(profile);
+      console.log(confirmTool);
+      break;
+    }
+
+    let tool = 'unknown';
+    if (process.env.CLAUDECODE) {
+      tool = 'claude-code';
+    } else if (Object.keys(process.env).some(k => k.startsWith('CODEX_'))) {
+      tool = 'codex';
+    } else if (process.env.AMP_API_KEY || Object.keys(process.env).some(k => k.startsWith('AMP_'))) {
+      tool = 'amp';
+    } else if (Object.keys(process.env).some(k => k.startsWith('OPENCODE_'))) {
+      tool = 'opencode';
+    }
+
+    const profile = readProfile();
+    if (profile.detectedTool && profile.toolDetectedAt) {
+      const ageMs = Date.now() - new Date(profile.toolDetectedAt).getTime();
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      if (ageMs < thirtyDaysMs && (tool === 'unknown' || tool === profile.detectedTool)) {
+        console.log(profile.detectedTool);
+        break;
+      }
+    }
+
+    console.log(tool);
+    break;
+  }
+
+  case 'load-model-defaults': {
+    const toolIdx = args.indexOf('--tool');
+    const profile = readProfile();
+    const tool = toolIdx !== -1 ? args[toolIdx + 1] : (profile.detectedTool || 'claude-code');
+    const defaults = (profile.modelDefaults || DEFAULT_MODEL_DEFAULTS)[tool] || DEFAULT_MODEL_DEFAULTS['claude-code'];
+    console.log(JSON.stringify(defaults, null, 2));
+    break;
+  }
+
+  case 'save-model-defaults': {
+    let map;
+    try { map = JSON.parse(args[0] || '{}'); }
+    catch { die('save-model-defaults requires a JSON object as first argument'); }
+    const toolIdx = args.indexOf('--tool');
+    const profile = readProfile();
+    const tool = toolIdx !== -1 ? args[toolIdx + 1] : (profile.detectedTool || 'claude-code');
+    profile.modelDefaults = profile.modelDefaults || { ...DEFAULT_MODEL_DEFAULTS };
+    profile.modelDefaults[tool] = { ...(profile.modelDefaults[tool] || {}), ...map };
+    writeProfileAtomic(profile);
+    console.log(`Model defaults saved for tool: ${tool}`);
+    break;
+  }
+
   default:
     console.log(`Unknown command: ${cmd}`);
-    console.log('Commands: status, phase-transition, pause, resume, log, score, score-batch, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear');
+    console.log('Commands: status, phase-transition, pause, resume, log, score, score-batch, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults');
     process.exit(1);
 }

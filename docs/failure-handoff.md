@@ -44,7 +44,7 @@ Every attempt is saved to `failureLog` in the state file:
 
 When Opus debug also fails, the orchestrator automatically:
 
-1. Generates `.claude/missions/handoff.md` with full context:
+1. Generates `.missions/handoff.md` with full context:
    - Mission config, phase status, approved plan
    - Complete failure log (what was tried, what failed)
    - Files changed (git diff stat)

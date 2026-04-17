@@ -141,7 +141,7 @@ flowchart LR
         Fail1 --> Write1["Write handoff.md\n+ state.json"]
     end
 
-    Write1 --> Disk[("📁 .claude/missions/\n├ active-mission.json\n└ handoff.md")]
+    Write1 --> Disk[("📁 .missions/\n├ active-mission.json\n└ handoff.md")]
 
     Disk --> Resume
 

@@ -40,7 +40,7 @@ Parse `$ARGUMENTS` to determine the action:
 
 > **Reset signal:** If `reset` is run while a phase is active, log a `user-signal` with `type:"reset_mid_flow"`, `role:"<current active phase's dominant role>"`, `delta:-20` **before** clearing state: `node "$MISSION_SCRIPT" user-signal '{"role":"<role>","phase":"<name>","type":"reset_mid_flow"}'`
 
-> **End-of-mission rating:** On the final phase transition, for Low/Medium autonomy: prompt the user for a 1–5 rating (use AskUserQuestion on Claude Code; plain-text STOP on other tools), then call `node "$MISSION_SCRIPT" rate-mission '{"rating":<n>}'`. For High autonomy: call `node "$MISSION_SCRIPT" rate-mission '{"skipReason":"high_autonomy"}'`. The `phase-transition` command then prints the full Mission Scorecard and merges the run into `~/.claude/mission-profile.json`.
+> **End-of-mission rating:** On the final phase transition, for Low/Medium autonomy: prompt the user for a 1–5 rating (use AskUserQuestion on Claude Code; plain-text STOP on other tools), then call `node "$MISSION_SCRIPT" rate-mission '{"rating":<n>}'`. For High autonomy: call `node "$MISSION_SCRIPT" rate-mission '{"skipReason":"high_autonomy"}'`. The `phase-transition` command then prints the full Mission Scorecard and merges the run into `$XDG_CONFIG_HOME/mission/profile.json` (default: `~/.config/mission/profile.json`).
 
 ---
 
@@ -48,7 +48,22 @@ Parse `$ARGUMENTS` to determine the action:
 
 ### 1. Check for Existing Mission
 
-Read `.claude/missions/active-mission.json`. If an active (non-completed) mission exists, inform the user and ask if they want to overwrite it. Do not proceed without confirmation.
+Read `.missions/active-mission.json`. If an active (non-completed) mission exists, inform the user and ask if they want to overwrite it. Do not proceed without confirmation.
+
+### 1.5. Detect Host Tool
+
+Run `node "$MISSION_SCRIPT" detect-tool` to identify the current AI coding tool. The script checks env vars in this cascade:
+
+1. `$CLAUDECODE=1` → `claude-code`
+2. any `$CODEX_*` env var → `codex`
+3. `$AMP_API_KEY` or any `$AMP_*` env var → `amp`
+4. any `$OPENCODE_*` env var → `opencode`
+5. cached profile value (if <30 days old and matches) → use cached
+6. nothing matched → `unknown`
+
+If the result is `unknown` and `AGENTS.md` is present, use AskUserQuestion (or plain-text STOP) to ask: "Which tool are you running this mission from? codex / opencode / other". Once known, call `node "$MISSION_SCRIPT" detect-tool --confirm <tool>` to persist it in the profile.
+
+If the result is already `claude-code`, `codex`, `amp`, or `opencode` (either from env or cache), no user prompt is needed — call `detect-tool --confirm <tool>` only if the env-detected tool differs from the cached value.
 
 ### 2. Interactive Setup
 
@@ -78,26 +93,35 @@ If a template is selected, apply its default mode and autonomy. Skip Questions 2
 Ask: "Any constraints or out-of-scope boundaries? (e.g., 'don't touch auth module', 'no new dependencies'). Press enter to skip."
 
 **Question 5 — Model Assignment:**
-Present the default model mappings and let the user customize. These control which model runs each subagent role, balancing cost vs. capability.
 
-> **Model names are provider-specific.** The defaults below assume Claude (Anthropic). Adjust for your tool: OpenAI/Codex → `gpt-4o-mini` / `gpt-4o` / `o3`; Google → `gemini-2.0-flash` / `gemini-2.5-pro`; Amp → use your configured model names. Enter any valid model name your tool supports.
+Run `node "$MISSION_SCRIPT" load-model-defaults` to load the saved map for the detected tool from the profile. Then present it:
 
-| Role | Class | Default (Claude) | Tier | Used in | Why |
-|------|-------|---------|------|---------|-----|
-| Explorer | Scout 🔭 | haiku | Fast/cheap | Architect: 3 parallel discovery agents | Fast, cheap codebase scanning |
-| Planner | Mage 🧙 | opus | Powerful | Architect: spec writing; Review: plan review | Strong reasoning for planning |
-| Worker | Knight ⚔️ | sonnet | Balanced | Implement/Build: parallel code subagents | Good balance of speed and quality |
-| Business Reviewer | Cleric 📜 | sonnet | Balanced | Audit: spec alignment + business logic | Catches missed requirements |
-| Security Reviewer | Rogue 🗡️ | sonnet | Balanced | Audit: injection, auth, secrets, exposure | Dedicated security lens |
-| Edge Case Reviewer | Ranger 🎯 | sonnet | Balanced | Audit: boundaries, nulls, partial failures | Catches what happy-path misses |
-| Reviewer | Druid 🌿 | sonnet | Balanced | Audit: async/concurrency + perf/architecture | Remaining audit lenses |
-| Verifier | Paladin 🛡️ | sonnet | Balanced | Verify: test + lint runner | Needs to run tools reliably |
+```
+Host tool: <tool> (auto-detected)
+Loaded defaults from $XDG_CONFIG_HOME/mission/profile.json:
 
-> **Note:** Mechanical checks (tests, lint, TODO scan, secret detection) are now run by `scripts/mission-checks.mjs` rather than LLM agents. This saves ~25K tokens per standard mission and eliminates the Verifier model from deterministic scan work — the verifier role focuses on reasoning over script output.
+  Explorer           <model>
+  Planner            <model>
+  Worker             <model>
+  Business Reviewer  <model>
+  Security Reviewer  <model>
+  Edge Case Reviewer <model>
+  Reviewer           <model>
+  Verifier           <model>
 
-Use AskUserQuestion to show these defaults and let the user override any role. Accept "defaults" to skip customization.
+Override any role? (reply "defaults" to accept, or "role=model" lines)
+If you override: save to profile for future missions? [yes / no / this-role-only]
+```
 
-**If your tool doesn't have AskUserQuestion** (Codex, OpenCode, etc.): present the model defaults as plain text and STOP. Wait for the user to reply ("defaults" or overrides) before continuing.
+Wait for the user's reply. Then:
+- Merge any overrides into the map and store in `active-mission.json` as `modelAssignment`.
+- If user replied **yes**: call `node "$MISSION_SCRIPT" save-model-defaults '<full-map-json>'` to persist the full updated map.
+- If user replied **this-role-only**: call `save-model-defaults` with only the overridden role(s).
+- If user replied **no** or **defaults** (no overrides): skip the profile write.
+
+> **Note:** Mechanical checks (tests, lint, TODO scan, secret detection) are now run by `scripts/mission-checks.mjs` rather than LLM agents. This saves ~25K tokens per standard mission — the verifier role focuses on reasoning over script output.
+
+**If your tool doesn't have AskUserQuestion** (Codex, OpenCode, etc.): present the defaults as plain text and STOP. Wait for the user to reply ("defaults" or overrides) before continuing.
 
 **Question 6 — Test/Lint Commands (optional):**
 Ask: "What commands run your tests and linter? (e.g., 'test: pytest, lint: ruff check'). Press enter to auto-detect."
@@ -134,7 +158,7 @@ This keeps the default branch clean and allows parallel work without interferenc
 
 ### 4. Create State File
 
-Create the directory `.claude/missions/` if it doesn't exist, then write `active-mission.json`:
+Create the directory `.missions/` if it doesn't exist, then write `active-mission.json`:
 
 **Standard mode phases:**
 ```json
@@ -335,6 +359,10 @@ For each phase:
 
 When the final phase completes, set `completedAt` on the mission state and present a final summary.
 
+### Changing Models Mid-Mission
+
+You can edit `.missions/active-mission.json` between phases to adjust any role in `modelAssignment`. The orchestrator re-reads state at every phase boundary, so the next spawned subagent will use the new value. An in-flight phase keeps the value it read at start — wait for it to finish (or pause) before editing if that matters.
+
 ---
 
 ## Orchestrator Failure & Handoff Loop
@@ -398,7 +426,7 @@ Subagents do NOT:
 
 ### `/mission status`
 
-1. Read `.claude/missions/active-mission.json`
+1. Read `.missions/active-mission.json`
 2. If no file exists, report "No active mission"
 3. Display:
 
@@ -462,7 +490,7 @@ Subagents do NOT:
 
 ### `/mission log`
 
-1. Read `.claude/missions/active-mission.json`
+1. Read `.missions/active-mission.json`
 2. If no file exists, report "No active mission"
 3. Display the full progress timeline:
 
@@ -491,9 +519,9 @@ Compute durations from `startedAt`/`completedAt` on each phase. For the active p
 
 Manual escape hatch — force a handoff to a new session. The orchestrator does this automatically when failure escalation is exhausted, but you can also trigger it manually at any time.
 
-1. Read `.claude/missions/active-mission.json`
+1. Read `.missions/active-mission.json`
 2. If no active mission, report "No active mission to hand off"
-3. Generate `.claude/missions/handoff.md` following `references/protocol-handoff.md`
+3. Generate `.missions/handoff.md` following `references/protocol-handoff.md`
 4. Pause the mission (set `paused: true`)
 5. Add progressLog entry: `{ "type": "mission_handoff", "detail": "Mission handed off (manual)" }`
 6. Write state
@@ -504,7 +532,7 @@ Manual escape hatch — force a handoff to a new session. The orchestrator does 
 1. Read state to confirm a mission exists
 2. Ask user to confirm: "Reset will delete all mission state. Continue?"
 3. If confirmed:
-   - Delete `.claude/missions/active-mission.json` and `.claude/missions/handoff.md` (if exists)
+   - Delete `.missions/active-mission.json` and `.missions/handoff.md` (if exists)
    - Report: "Mission state cleared."
 
 ---
@@ -513,9 +541,9 @@ Manual escape hatch — force a handoff to a new session. The orchestrator does 
 
 When `/mission` is invoked with no arguments in a new session:
 
-1. Read `.claude/missions/active-mission.json`
+1. Read `.missions/active-mission.json`
 2. If an active mission exists, display its status
-3. Check for `.claude/missions/handoff.md`:
+3. Check for `.missions/handoff.md`:
    - If present, read it — this contains full context from the previous session including what was tried, what failed, and what's next
    - Delete the handoff file after reading (it's been consumed)
    - Resume the mission (set `paused: false`)

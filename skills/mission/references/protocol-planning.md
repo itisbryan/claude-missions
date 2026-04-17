@@ -16,7 +16,7 @@ Always run this step first. Compaction may have removed earlier context.
 
 1. Run `node scripts/mission-state.mjs status` — confirm you're in the Architect/Plan phase
 2. Read `CLAUDE.md` / `AGENTS.md` if present — note conventions that affect planning
-3. Read `.claude/missions/active-mission.json` — get `modelAssignment`, `constraints`, and `secondBrain`
+3. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, and `secondBrain`
 3. **If `secondBrain` is set — search the vault first:**
    - Read `.vault-index.json` from the vault directory
    - Search the index for notes related to the mission description (by tag, title, summary)

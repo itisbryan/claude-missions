@@ -10,7 +10,7 @@ Generate a structured handoff document so a new session or agent can pick up the
 
 ## Handoff Document Format
 
-Write to `.claude/missions/handoff.md`:
+Write to `.missions/handoff.md`:
 
 ```markdown
 # Mission Handoff

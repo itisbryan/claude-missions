@@ -11,13 +11,13 @@ All notable changes to claude-missions are documented here.
 Workers that hit their context limit mid-task now hand off cleanly instead of losing all progress.
 
 **How it works:**
-- Workers call `checkpoint-write` after each logical step (file written, tests passing, commit made), saving `completedSteps`, `remainingSteps`, `lastCommit`, and `filesChanged` to `.claude/missions/subagent-checkpoint.json`
+- Workers call `checkpoint-write` after each logical step (file written, tests passing, commit made), saving `completedSteps`, `remainingSteps`, `lastCommit`, and `filesChanged` to `.missions/subagent-checkpoint.json`
 - Workers end their output with `<!-- SUBAGENT_DONE: {...} -->` — the orchestrator uses the presence/absence of this marker to distinguish context exhaustion from a real failure
 - On missing marker: orchestrator reads the checkpoint and spawns a new subagent with a `RESUMING FROM CHECKPOINT` prefix, skipping already-completed steps. The retry budget is **not** consumed
 - On success: orchestrator calls `checkpoint-clear` before moving to the next work item
 
 **Three new `mission-state.mjs` subcommands:**
-- `checkpoint-write '<json>'` — atomically saves progress; creates `.claude/missions/` if needed
+- `checkpoint-write '<json>'` — atomically saves progress; creates `.missions/` if needed
 - `checkpoint-read` — outputs the checkpoint JSON, or `null` if none exists
 - `checkpoint-clear` — deletes the checkpoint file after successful work item completion
 

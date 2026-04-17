@@ -258,4 +258,4 @@ Printed to stderr at the end of the final phase transition:
 | User rating | `userRating.rating` / `skipReason` |
 | Total tokens | sum of `performanceLog[].usage.totalTokens` |
 
-Career section is populated from `~/.claude/mission-profile.json` (merged at final transition).
+Career section is populated from `${XDG_CONFIG_HOME:-~/.config}/mission/profile.json` (merged at final transition).

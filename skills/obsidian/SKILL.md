@@ -11,7 +11,7 @@ Read, write, search, and link notes in an Obsidian vault directly from Claude Co
 ## Vault Discovery
 
 Find the vault path in this order:
-1. Check `secondBrain` field in `.claude/missions/active-mission.json` (if a mission is active)
+1. Check `secondBrain` field in `.missions/active-mission.json` (if a mission is active)
 2. Check for `.obsidian-vault` file in the project root (contains the vault path)
 3. Check environment variable `OBSIDIAN_VAULT`
 4. Ask the user with AskUserQuestion: "Where is your Obsidian vault? Provide the absolute path."

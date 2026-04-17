@@ -24,13 +24,55 @@ node ~/.claude/skills/mission/scripts/mission-state.mjs score-batch '[...]'
 
 ## `MISSION_PROFILE_PATH` Environment Variable
 
-Overrides the cross-mission profile location. Defaults to `~/.claude/mission-profile.json` (resolved via `os.homedir()` — portable across Windows and Unix).
+Overrides the cross-mission profile location. Defaults to `${XDG_CONFIG_HOME:-~/.config}/mission/profile.json` (resolved via `process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config')` — portable on macOS, Linux, and Windows).
 
 ```bash
 MISSION_PROFILE_PATH=/custom/path/profile.json node "$MISSION_SCRIPT" profile
 ```
 
-`os.homedir()` returns `%USERPROFILE%` on Windows and `$HOME` on Unix — no manual path translation needed.
+**Legacy migration:** On first read, if the new XDG path is missing but `~/.claude/mission-profile.json` exists, the profile is automatically copied to the new path. The legacy file is left untouched so rollback is trivial.
+
+## Host-Tool Detection
+
+Run `node "$MISSION_SCRIPT" detect-tool` at mission start. The script checks env vars in priority order:
+
+1. `$CLAUDECODE=1` → `claude-code`
+2. any `$CODEX_*` env var → `codex`
+3. `$AMP_API_KEY` or any `$AMP_*` env var → `amp`
+4. any `$OPENCODE_*` env var → `opencode`
+5. cached `detectedTool` in profile (if <30 days old and not contradicted) → use cache
+6. nothing matched → `unknown` (ask user)
+
+Once confirmed, persist with `node "$MISSION_SCRIPT" detect-tool --confirm <tool>`.
+
+## Profile Schema (v2)
+
+The cross-tool profile at `${XDG_CONFIG_HOME:-~/.config}/mission/profile.json` now includes two new top-level keys alongside existing gamification fields:
+
+```json
+{
+  "version": 2,
+  "detectedTool": "claude-code",
+  "toolDetectedAt": "<ISO timestamp>",
+  "modelDefaults": {
+    "claude-code": {
+      "explorer": "claude-haiku-4-5",
+      "planner": "claude-opus-4-7",
+      "worker": "claude-sonnet-4-6",
+      "business_reviewer": "claude-sonnet-4-6",
+      "security_reviewer": "claude-sonnet-4-6",
+      "edge_case_reviewer": "claude-sonnet-4-6",
+      "reviewer": "claude-sonnet-4-6",
+      "verifier": "claude-sonnet-4-6"
+    },
+    "codex": { "explorer": "gpt-4o-mini", "planner": "o3", "worker": "gpt-4o", ... },
+    "amp": { "_note": "user-supplied model names" },
+    "opencode": { "_note": "user-supplied; provider-agnostic" }
+  }
+}
+```
+
+Use `node "$MISSION_SCRIPT" load-model-defaults [--tool <tool>]` to read the map for a tool, and `save-model-defaults '<json>' [--tool <tool>]` to update it.
 
 ## AskUserQuestion Fallback
 
@@ -62,6 +104,6 @@ No new scoring step assumes Claude Code's `subagent_type` keyword.
 | Convention | Variable / Pattern | Default |
 |---|---|---|
 | Script location | `$MISSION_SCRIPT` | `~/.claude/skills/mission/scripts/mission-state.mjs` |
-| Profile location | `$MISSION_PROFILE_PATH` | `~/.claude/mission-profile.json` |
+| Profile location | `$MISSION_PROFILE_PATH` | `${XDG_CONFIG_HOME:-~/.config}/mission/profile.json` |
 | Interactive prompts | AskUserQuestion or plain-text STOP | Plain-text STOP if tool lacks the tool |
 | Subagent dispatch | Tool-native mechanism | See each protocol's dispatch note |
