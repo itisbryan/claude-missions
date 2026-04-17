@@ -566,7 +566,7 @@ switch (cmd) {
     const vc = profile.verdictCounts || {};
     const verdictLine = ['outstanding','solid','needs_improvement','poor','failed'].filter(k => vc[k]).map(k => `${VERDICT_EMOJI[k]} x${vc[k]}`).join('   ') || 'none';
     console.log(`\nVerdicts (career)\n${verdictLine}`);
-    if (profile.userRatings?.count > 0) { const avg = (profile.userRatings.sum / profile.userRatings.count).toFixed(1); console.log(`\nUser ratings: avg ${avg}/5 over ${profile.userRatings.count} rated missions`); }
+    if (profile.userRatings?.count > 0) { const avg = (profile.userRatings.sum / profile.userRatings.count).toFixed(1); console.log(`\nAvg user rating: ${avg}/5 over ${profile.userRatings.count} rated missions`); }
     console.log('');
     break;
   }
