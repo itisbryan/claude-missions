@@ -4,8 +4,9 @@ A skill bundle for [Claude Code](https://claude.ai/code) — multi-phase mission
 
 Inspired by [Factory.ai](https://factory.ai)'s Droid system and [pi-missions](https://github.com/itisbryan/pi-missions). See [Inspiration](docs/inspiration.md) for details.
 
-**Two skills, one repo:**
+**Three skills, one repo:**
 - **`/mission`** — structured development workflows with parallel subagents, failure escalation, and auto-handoff
+- **`/git-worktree`** — create isolated worktrees with auto-detected dependency install; auto-invoked by `/mission`
 - **`/obsidian`** — read, write, search, and link notes in your Obsidian vault with indexed lookup
 
 ## Install
@@ -45,6 +46,17 @@ npx skills add itisbryan/claude-missions@obsidian
 | `/mission handoff` | Generate handoff doc for session transfer |
 | `/mission done` | Mark mission complete early |
 | `/mission reset` | Clear all mission state |
+
+### /git-worktree
+
+| Command | Description |
+|---|---|
+| `/git-worktree create <branch>` | Create worktree at `.worktrees/<branch>/`, auto-install deps |
+| `/git-worktree list` | Show all worktrees |
+| `/git-worktree cleanup` | Interactively remove worktrees |
+| `/git-worktree setup [path]` | Re-run env copy + dep install on an existing worktree |
+
+Auto-invoked by `/mission` before Phase 1. Pass `--no-setup` to skip dependency install, or decline via the autonomy question to skip worktree creation entirely.
 
 ### /obsidian
 
@@ -98,6 +110,10 @@ claude-missions/
 ├── CHANGELOG.md
 ├── docs/                               # Documentation
 └── skills/
+    ├── git-worktree/                    # /git-worktree skill
+    │   ├── SKILL.md
+    │   └── scripts/
+    │       └── worktree-manager.mjs     # Create/list/cleanup worktrees, auto-install deps
     ├── mission/                         # /mission skill
     │   ├── SKILL.md
     │   ├── references/
