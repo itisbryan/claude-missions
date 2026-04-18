@@ -65,10 +65,19 @@ When you run `/mission <description>`:
 3. **Autonomy** — Low, Medium, or High (auto-set by template)
 4. **Constraints** — optional boundaries
 5. **Model Assignment** — which model runs each subagent role
-6. **Second Brain** — optional Obsidian vault path
-7. **CLAUDE.md** — project instructions read and passed to all subagents
-8. **Git worktree** — isolated branch created for the mission
+6. **Checks** — test/lint commands (auto-discovered from `package.json` or common binaries; override here or via `active-mission.json`)
+7. **Second Brain** — optional Obsidian vault path
+8. **CLAUDE.md** — project instructions read and passed to all subagents
+9. **Git worktree** — isolated branch created for the mission
 
 ## State File
 
 Mission state persists at `.missions/active-mission.json`. Survives session restarts, compaction, and handoffs. Run `/mission` with no args to resume.
+
+## Host Tool Detection
+
+At startup, `/mission` auto-detects which AI coding tool is running (Claude Code, Codex, Amp, OpenCode) by inspecting environment variables. Model defaults and pause-gate behavior are adjusted per tool — e.g., Codex uses plain-text STOP gates instead of `AskUserQuestion`.
+
+## Career Profile
+
+Model assignments and cross-mission performance stats are persisted to `$XDG_CONFIG_HOME/mission/profile.json` (default `~/.config/mission/profile.json`). At the start of each new mission, saved defaults for the detected tool are pre-loaded into the model assignment step so you don't have to re-configure each time. The profile merges mission XP, verdicts, and ratings after every completed mission. See [Scoring & Tokens](scoring.md) for the full gamification system.

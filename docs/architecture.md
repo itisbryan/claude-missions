@@ -11,8 +11,9 @@ flowchart TD
         Q2 --> Q3[Autonomy?]
         Q3 --> Q4[Constraints?]
         Q4 --> Q5[Model Assignment?]
-        Q5 --> Q6[Second Brain?]
-        Q6 --> ReadClaude[Read CLAUDE.md]
+        Q5 --> Q6[Checks?]
+        Q6 --> Q7[Second Brain?]
+        Q7 --> ReadClaude[Read CLAUDE.md]
         ReadClaude --> Worktree[Create git worktree]
         Worktree --> State[Write state file]
     end
@@ -159,6 +160,8 @@ User
   └─→ /mission orchestrator (the brain)
         ├─→ Scripts (deterministic — no reasoning)
         │     ├── mission-state.mjs
+        │     ├── mission-checks.mjs
+        │     ├── worktree-manager.mjs
         │     ├── vault-index.mjs
         │     ├── todo-scan.mjs
         │     └── vault-audit.mjs
@@ -166,7 +169,7 @@ User
         │     ├── Explorer agents (haiku)
         │     ├── Worker agents (sonnet)
         │     ├── Reviewer agents (sonnet)
-        │     └── Opus debug agent
+        │     └── Debug agent (planner model)
         └─→ State file (single source of truth)
 ```
 

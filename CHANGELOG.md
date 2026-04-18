@@ -6,6 +6,10 @@ All notable changes to claude-missions are documented here.
 
 ## [Unreleased]
 
+---
+
+## [2026-04-18]
+
 ### Added — Subagent Context-Exhaustion Handling
 
 Workers that hit their context limit mid-task now hand off cleanly instead of losing all progress.
@@ -76,3 +80,12 @@ Retry loop with per-session (3 attempts) and cross-session (6 attempts) ceilings
 
 ### Performance scoring
 Rubric-based quality/completeness/efficiency scoring after every subagent return. Scores fed into subsequent subagent prompts to guide model behavior.
+
+### Gamification & cross-mission learning
+XP system with verdict bonuses, scoring streaks, and RPG persona classes (Scout/Mage/Knight/Rogue/Cleric/Ranger/Druid/Paladin). Mission Scorecard printed at completion. User signals (plan revisions, corrections, approvals) contribute XP deltas. Career profile in `~/.config/mission/profile.json` accumulates stats across missions.
+
+### Tool-aware model selection
+Auto-detects host tool from environment (Claude Code, Codex, Amp, OpenCode). Model defaults persisted per-tool to `$XDG_CONFIG_HOME/mission/profile.json` — pre-loaded at next mission start. Plain-text STOP fallback for tools without `AskUserQuestion`.
+
+### First-party git-worktree skill
+`/git-worktree` skill with auto-detected dependency install (npm, bun, pnpm, yarn, bundle, poetry, uv, pip, go, cargo). Auto-invoked by `/mission` before Phase 1. Includes create/list/cleanup/setup commands with safety guards (path-traversal rejection, no current-worktree removal).

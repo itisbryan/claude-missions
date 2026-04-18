@@ -83,3 +83,58 @@ If `secondBrain` is set, writes `agent-performance.md` to the vault with:
 - Value analysis (which roles burn tokens for low quality)
 - Model upgrade/downgrade recommendations
 - Recent scores with feedback
+
+## Gamification
+
+### XP Formula
+
+```
+xp = round(composite * 10) + VERDICT_BONUS
+```
+
+| Verdict | Bonus |
+|---|---|
+| Outstanding | +20 |
+| Solid | +10 |
+| Needs improvement | 0 |
+| Poor | −5 |
+| Failed | −10 |
+
+Example: composite 4.2 (solid) → 42 + 10 = **52 XP**
+
+### Streaks
+
+A `scoringStreak` increments each time a scoring phase (Architect, Plan, Implement, Build, Audit) completes with at least one subagent scored. Resets to 0 if a scoring phase ends with no scores. `longestStreak` tracks the peak.
+
+### Persona Classes
+
+Each role maps to an RPG class — display-layer only, no effect on scoring math:
+
+| Role | Class | Emoji |
+|---|---|---|
+| Explorer | Scout | 🔭 |
+| Planner | Mage | 🧙 |
+| Worker | Knight | ⚔️ |
+| Security Reviewer | Rogue | 🗡️ |
+| Business Reviewer | Cleric | 📜 |
+| Edge Case Reviewer | Ranger | 🎯 |
+| Reviewer (async/perf) | Druid | 🌿 |
+| Verifier | Paladin | 🛡️ |
+
+### Mission Scorecard
+
+Printed at the end of the final phase. Includes: total XP, longest streak, verdict breakdown, party roster (roles + avg scores), MVP, needs-training role, user signal counts, user rating (1–5), and total tokens.
+
+## User Signals
+
+The orchestrator logs user feedback as `userSignals` in the state file — corrections, plan revisions, disputed choices, and approvals — each carrying a XP delta. These signals feed into the cross-mission career profile.
+
+## Career Profile
+
+Stored at `$XDG_CONFIG_HOME/mission/profile.json` (default `~/.config/mission/profile.json`). Merged at the end of every mission. Contains:
+- Per-role averages across all missions
+- Lifetime XP, verdict counts, streak records
+- Saved model defaults per host tool (Claude Code, Codex, Amp, OpenCode)
+- Mission history (slug, date, rating)
+
+Run `node ~/.claude/skills/mission/scripts/mission-state.mjs load-model-defaults` to inspect saved defaults for the current tool.

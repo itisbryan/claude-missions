@@ -1,5 +1,13 @@
 # claude-missions
 
+[![Claude Code](https://img.shields.io/badge/Claude_Code-supported-CC785C?style=for-the-badge)](https://claude.ai/code)
+[![Codex](https://img.shields.io/badge/Codex-supported-10A37F?style=for-the-badge)](https://openai.com/codex)
+[![Amp](https://img.shields.io/badge/Amp-supported-8B5CF6?style=for-the-badge)](https://ampcode.com)
+[![OpenCode](https://img.shields.io/badge/OpenCode-supported-0EA5E9?style=for-the-badge)](https://opencode.ai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+
+![claude-missions dungeon banner](assets/dungeon-banner.svg)
+
 A skill bundle for [Claude Code](https://claude.ai/code) — multi-phase mission orchestration + Obsidian second brain integration.
 
 Inspired by [Factory.ai](https://factory.ai)'s Droid system and [pi-missions](https://github.com/itisbryan/pi-missions). See [Inspiration](docs/inspiration.md) for details.
@@ -12,12 +20,13 @@ Inspired by [Factory.ai](https://factory.ai)'s Droid system and [pi-missions](ht
 ## Install
 
 ```bash
-# Install both skills
+# Install all three skills
 npx skills add itisbryan/claude-missions
 
 # Or install one at a time
 npx skills add itisbryan/claude-missions@mission
 npx skills add itisbryan/claude-missions@obsidian
+npx skills add itisbryan/claude-missions@git-worktree
 ```
 
 ## Quick Start
