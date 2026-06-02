@@ -371,12 +371,13 @@ All confirmation gates and the exact state mutations are in `references/lifecycl
 When `/mission` is invoked with no arguments in a new session:
 
 1. Read `.missions/active-mission.json`
-2. If an active mission exists, display its status
-3. Check for `.missions/handoff.md`:
+2. **Health-check the state:** run `node ~/.claude/skills/mission/scripts/mission-state.mjs doctor`. If `verdict` is not `ok`, surface the listed `issues`; on `corrupt` offer `/mission reset` and do not proceed; on `issues` fix what you can (e.g. fill a missing `modelAssignment` role) before resuming. Don't continue a structurally-broken mission silently.
+3. If an active mission exists, display its status
+4. Check for `.missions/handoff.md`:
    - If present, read it — this contains full context from the previous session including what was tried, what failed, and what's next
    - Delete the handoff file after reading (it's been consumed)
    - Resume the mission (set `paused: false`)
-4. If the mission is not paused and not complete:
+5. If the mission is not paused and not complete:
    - Read the current phase's protocol
    - If there are entries in `failureLog` for the current work, review them before retrying — do NOT repeat the same approaches that already failed
    - Continue execution from where the previous session left off

@@ -6,6 +6,12 @@ All notable changes to claude-missions are documented here.
 
 ## [Unreleased]
 
+### Added — Gamification Tests, Audit-Synthesis Wiring & Resume Health-Check
+
+- **Gamification engine tests** (`gamification.test.mjs`, 8 tests): XP math, streak increment/reset on phase transitions, `user-signal` deltas, `rate-mission` bonus distribution, career-profile merge, and lessons capture — plus a parse smoke test for the git-worktree and obsidian scripts. Full suite now 22 tests.
+- **`audit-synthesis` is now reachable:** `protocol-audit.md` gained Step 1.6 — when `optimizations.jsonSynthesis` is set, reviewers emit JSON, the orchestrator writes `.missions/reviewer-findings-<role>.json`, and `mission-checks.mjs audit-synthesis` does the merge/dedup/sort (Step 2 is skipped).
+- **Resume health-check:** Session Continuity now runs `mission-state.mjs doctor` and reacts to its verdict before resuming a mission, instead of continuing a structurally-broken state silently.
+
 ### Added — Tests, Doctor, Token Capture & Opt-in Tradeoff Modes
 
 - **Test suite** (`skills/mission/scripts/scripts.test.mjs`, `node:test`) + `package.json` `test` script (`npm test`) — 14 tests covering the scoring contract, input-hardening guardrails, `audit-synthesis`, `doctor`, and `parse-usage`. `mission-checks.mjs` auto-discovers it via `package.json`.

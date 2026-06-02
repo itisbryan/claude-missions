@@ -41,6 +41,8 @@ When in doubt, dispatch — the cost of an unneeded reviewer is small; the cost 
 
 > **Opt-in token modes:** if `optimizations.gateSecurityReviewer`, `optimizations.microMissionMode`, or `optimizations.jsonSynthesis` is set in state, also apply `references/protocol-audit-aggressive.md` (Security gating / micro-mission consolidation / deterministic JSON synthesis via `mission-checks.mjs audit-synthesis`). All are **off** unless explicitly enabled — default behavior dispatches the full default panel and synthesizes findings inline.
 
+> **If `optimizations.jsonSynthesis` is set:** append to every reviewer prompt — *"Output findings as a JSON array, one object per finding: `{rule, severity (P0–P3), file, line, snippet, issue, fix, reviewer}`."* You'll consume those in Step 1.6 below.
+
 > **Dispatch note:** Use your tool's read-only/exploration subagent mechanism for all reviewers. Claude Code: `subagent_type: "Explore"`; Codex/OpenCode/Amp: use equivalent read-only agent mode. Pass the role-specific model from `modelAssignment`.
 
 Before dispatching each reviewer, fetch its class lessons and (if non-empty) prepend them — see `references/protocol-lessons-fetch.md` for the prepend format. Classes: Reviewer-1 `lessons Cleric` · Reviewer-2 `lessons Rogue` · Reviewer-3 `lessons Ranger` · Reviewers 4–5 `lessons Druid`.
@@ -169,7 +171,16 @@ node "$MISSION_SCRIPT" score-batch '[
 ]'
 ```
 
-### Step 2: Synthesize
+### Step 1.6: Deterministic synthesis (only if `optimizations.jsonSynthesis`)
+
+Write each reviewer's JSON array to `.missions/reviewer-findings-<role>.json`, then:
+
+    node ~/.claude/skills/mission/scripts/mission-checks.mjs audit-synthesis --json \
+      --findings .missions/reviewer-findings-business_logic.json,.missions/reviewer-findings-security.json,…
+
+It merges by file+line (highest severity wins), dedups, records which reviewers flagged each, and sorts P0→P3. Use its `findings` array as the synthesized list and **skip Step 2** (the script already did the merge/dedup/sort). Then go to Step 3.
+
+### Step 2: Synthesize (manual — default path)
 
 1. **Merge** — same file+line flagged by multiple reviewers → one finding at highest severity
 2. **Deduplicate** — identical findings become one
