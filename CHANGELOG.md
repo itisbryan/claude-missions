@@ -6,6 +6,44 @@ All notable changes to claude-missions are documented here.
 
 ## [Unreleased]
 
+### Removed — Obsidian / Second-Brain Integration from the Mission Skill
+
+The `/mission` skill no longer integrates with Obsidian. The standalone `/obsidian` skill is unchanged and still shipped in the bundle — only the *coupling* was removed.
+
+- Dropped the `secondBrain` config option, Question 7 in setup, and the `## Obsidian Integration` section in `SKILL.md`.
+- Removed the per-phase `## Second Brain` sections and all vault reads/writes from every protocol (`protocol-planning`, `-implementation`, `-audit`, `-testing`, `-verification`, `-review`, `-minimal-build`, `-scoring`), including the `## Second Brain Integration` performance-dashboard in `protocol-scoring.md`.
+- Deleted `references/protocol-second-brain.md`, removed the `secondBrain` field from `state-schema.md`, and dropped the `/obsidian` vault scripts from the deterministic-ops list.
+- Updated docs (`docs/mission.md` setup flow, `docs/scoring.md` Vault Dashboard, `docs/architecture.md` lifecycle diagram, `docs/workflows.md` workflows 1/3/6, README tagline) to remove mission↔vault coupling. Pure `/obsidian` workflows and the Vault Index Lookup architecture remain.
+- TODO/FIXME detection still runs (deterministically, inside `mission-checks.mjs`) — it just no longer persists to a vault.
+
+### Token Optimization — Haiku Scouting, Scope Gating & Script Offload
+
+A round of token-efficiency work. Scouting already ran on Haiku 4.5 by default; this round makes that wiring canonical and pushes deterministic work off the LLM. Est. **~15–30K saved per standard mission** at zero quality cost, more with the opt-in modes.
+
+**Model IDs — pinned & consistent (correctness fix)**
+- `DEFAULT_MODEL_DEFAULTS["claude-code"]` now pins **`explorer: claude-haiku-4-5-20251001`** (was the dateless `claude-haiku-4-5`, which can resolve to a stale snapshot via Claude Code issue #25588) and **`planner: claude-opus-4-8`** (was `claude-opus-4-7`). Reviewers/worker/verifier stay on `claude-sonnet-4-6`.
+- `SKILL.md`, `docs/mission.md`, and `protocol-cross-tool.md` now use the **same full, dated IDs** instead of short `haiku`/`opus`/`sonnet` aliases — runtime and docs no longer disagree. The Scout (explorer) now deterministically lands on current Haiku 4.5.
+
+**Deterministic orchestrator offload — three new `mission-state.mjs` subcommands**
+- `score-compute '<json>'` — previews composite/verdict/XP for one agent or a batch without writing state.
+- `failure-check "<workItem>" [--session <n>]` — returns the escalation decision (`shouldHardStop` / `shouldEscalate`) plus `priorFailures`, so the orchestrator never counts attempts from memory.
+- `progress-summary [phase]` — emits the 3-line Medium-autonomy phase-gate summary.
+- `score` / `score-batch` now **accept raw `{quality,completeness,efficiency}`** and derive `composite` + `verdict` themselves (passing explicit values still works).
+
+**Scope-aware reviewer dispatch (safe, always-on)**
+- `mission-checks.mjs audit-prefilter --json` now also emits `scope`, `size`, `dispatch`, and `gating`. The Audit phase skips the **Async** and **Performance** reviewers when the changed files show no matching markers — biased to dispatch when uncertain, so the failure mode is "ran an extra reviewer", never "missed a bug". Skipped reviewers are gamification-safe.
+
+**Size-aware scouting + discovery cache**
+- `protocol-planning.md` now sizes the scout party (1 for bugfix/investigation, 2 for narrow/minimal, 3 for broad standard) instead of always launching 3, and supports an optional `.missions/discovery-index.json` cache so later scouts skip re-mapping the tree.
+
+**Progressive disclosure**
+- Moved the full state schema → `references/state-schema.md` and the lifecycle-command steps → `references/lifecycle-commands.md`, leaving compact pointers in `SKILL.md` (shrinks the file loaded on every invocation). Extracted the repeated lessons-fetch block → `references/protocol-lessons-fetch.md`.
+
+**Aggressive token modes — opt-in, off by default** (`references/protocol-audit-aggressive.md`)
+- `optimizations.gateSecurityReviewer` — gate the Security reviewer on scope detection (never enable on auth/PII/payment repos).
+- `optimizations.microMissionMode` — merge Async+Perf into one advisory reviewer for tiny diffs (scored as the new `reviewer_architecture` / **Warden** 🏯 role so it doesn't skew Druid), with a single-reviewer choice for single-file changes.
+- Documented `business_reviewer`/`edge_case_reviewer` → Haiku as a benchmark-gated `modelAssignment` override (never the Security or async/perf reviewer).
+
 ---
 
 ## [2026-04-18]

@@ -15,9 +15,12 @@ Personas are **display-layer only** — they do not alter XP math, composite sco
 | `business_reviewer` | Cleric | 📜 | keeps faith with the spec, calls out drift |
 | `edge_case_reviewer` | Ranger | 🎯 | tracks what happy-path misses |
 | `reviewer` | Druid | 🌿 | reads system nature — time, flow, growth |
+| `reviewer_architecture` | Warden | 🏯 | the merged Async+Perf lens used only in micro-mission mode |
 | `verifier` | Paladin | 🛡️ | seals the work, bears the final oath |
 
 Unknown roles fall back to the role name with a ❓ emoji.
+
+`reviewer_architecture` exists so the opt-in micro-mission merged reviewer (`references/protocol-audit-aggressive.md`) doesn't dilute the Druid (`reviewer`) career average. It's not part of the default party.
 
 ## Usage in Protocols
 

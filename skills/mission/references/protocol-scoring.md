@@ -44,6 +44,8 @@ Rate each output on 3 dimensions, 1-5 scale:
 ### Composite Score
 `composite = (quality * 0.5) + (completeness * 0.3) + (efficiency * 0.2)`
 
+> **You don't compute this by hand.** When you log a score with `mission-state.mjs score` / `score-batch`, you may pass only `{quality, completeness, efficiency}` — the script derives `composite` and `verdict` for you using the formula and bands below. To preview them without writing state, run `mission-state.mjs score-compute '<json>'`. Passing an explicit `composite`/`verdict` still works (back-compatible) and overrides the derivation.
+
 ### Verdict
 | Composite | Verdict | Emoji |
 |---|---|---|
@@ -164,48 +166,6 @@ If a role consistently scores above 4.5:
 
 If token usage is disproportionate to quality:
 - Report: "Business Reviewer used 45K tokens (avg) but scored 2.8/5. High cost, low value — switch model or tighten prompt."
-
-## Second Brain Integration
-
-If `secondBrain` is set, save performance data to the vault:
-
-**Per-mission:** append scores to `04-implementation-log.md` or `06-audit-report.md`
-
-**Cross-mission trends:** write `01 - Projects/<project>/agent-performance.md`:
-```markdown
----
-tags: [meta, performance, project/<name>]
-updated: 2026-04-05
----
-# Agent Performance — <project>
-
-## Role Averages
-| Role | Model | Avg Score | Avg Tokens | Total Tokens | Runs | Trend |
-|---|---|---|---|---|---|---|
-| Explorer | haiku | 3.8 | 11.2K | 67K | 6 | → stable |
-| Worker | sonnet | 4.2 | 28.5K | 342K | 12 | ↑ improving |
-| Security Reviewer | sonnet | 4.5 | 18.3K | 73K | 4 | ↑ improving |
-| Business Reviewer | sonnet | 2.8 | 45.1K | 180K | 4 | ↓ declining |
-
-## Token Budget
-- Total mission tokens: 1.24M
-- By phase: Architect 134K | Implement 520K | Audit 365K | Verify 89K | Other 132K
-- Most expensive role: Worker (342K across 12 runs)
-- Best value: Explorer (67K tokens, 3.8/5 score — efficient)
-- Worst value: Business Reviewer (180K tokens, 2.8/5 score — high cost, low quality)
-
-## Recommendations
-- Business Reviewer: upgrade to a more powerful model or tighten prompt — 180K tokens for 2.8/5 is poor ROI
-- Explorer: add "trace middleware chain" to prompt — recurring blind spot
-- Worker: consider a faster/cheaper model for simple work items — 4.2/5 average suggests the current model may be overkill for some tasks
-
-## Recent Scores
-[last 10 entries with feedback and token usage]
-```
-
-This note becomes a living performance + cost dashboard.
-
----
 
 ## Gamification Appendix
 

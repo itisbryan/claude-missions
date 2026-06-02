@@ -34,10 +34,6 @@ After testing is complete:
 2. List any areas with insufficient coverage
 3. Confirm: "All tests passing. Test phase complete."
 
-## Second Brain
-
-If `secondBrain` is set, write `05-test-report.md` with test results, coverage, and gaps. See `references/protocol-second-brain.md`.
-
 ## Phase Transition
 
 Once all tests pass and you have presented your test report, follow the steps in `references/protocol-phase-transition.md`.

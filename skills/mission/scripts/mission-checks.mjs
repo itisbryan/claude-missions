@@ -31,7 +31,7 @@ if (!subcommand || subcommand === '--help') {
 Subcommands:
   pre-checks         Run tests + lint + TODO scan over the whole project
   post-implement     Same as pre-checks but scoped to git-changed files
-  audit-prefilter    Pattern-detect known issues across changed files
+  audit-prefilter    Pattern-detect known issues + emit scope-based reviewer gating
 
 Flags:
   --json             Output JSON (default: human-readable)
@@ -134,6 +134,28 @@ function getChangedFiles(since) {
   }
 }
 
+// --- Diff size (for scope-based reviewer gating) ---
+
+function getDiffStat(since) {
+  if (filesFlag) {
+    // Explicit file list: count is known, line delta is not — treat as unknown.
+    return { filesChanged: filesFlag.split(',').map(f => f.trim()).filter(Boolean).length, linesChanged: null };
+  }
+  try {
+    const ref = since || sinceFlag || 'HEAD~1';
+    const out = execSync(`git diff --numstat ${ref}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+    let files = 0, lines = 0;
+    for (const row of out.trim().split('\n').filter(Boolean)) {
+      const [add, del] = row.split('\t');
+      files++;
+      lines += (parseInt(add, 10) || 0) + (parseInt(del, 10) || 0);
+    }
+    return { filesChanged: files, linesChanged: lines };
+  } catch {
+    return { filesChanged: 0, linesChanged: null };
+  }
+}
+
 // --- Start commit from active-mission.json ---
 
 function getStartCommit() {
@@ -232,7 +254,7 @@ function runLint(cmd) {
   };
 }
 
-// --- TODO scan (delegates to obsidian script if available, otherwise inline) ---
+// --- TODO scan (inline pattern match) ---
 
 function runTodos(files) {
   if (skipKinds.has('todos')) {
@@ -331,6 +353,25 @@ const AUDIT_PATTERNS = [
   },
 ];
 
+// Conservative scope markers — used to gate which Audit reviewers to dispatch.
+// Bias toward over-detection: a false positive only means "ran a reviewer we
+// didn't strictly need", never "skipped a reviewer that mattered".
+const SCOPE_MARKERS = {
+  hasAsync:         /async\s+function|\basync\b|\bawait\b|\bPromise\b|\.(then|catch|finally)\s*\(|\bgoroutine\b|\bThread\b|\bmutex\b|\bsemaphore\b|setTimeout|setInterval|\bqueue\b|\bworker\b|concurrent/i,
+  hasDb:            /\b(SELECT|INSERT|UPDATE|DELETE)\b|\.(query|exec|execute)\s*\(|prisma|sequelize|\bknex\b|mongoose|\.(findOne|findMany|save|create|destroy)\b|ActiveRecord|repository/i,
+  hasNetwork:       /\bfetch\s*\(|axios|https?:\/\/|requests\.|urllib|XMLHttpRequest|WebSocket|\bgrpc\b/i,
+  hasLoops:         /\bfor\b|\bwhile\b|\.(map|forEach|reduce|filter|flatMap)\s*\(/,
+  hasMemory:        /\bcache\b|new\s+(Array|Map|Set|WeakMap)|Buffer\.|allocate|malloc|\bstream\b/i,
+  hasIO:            /\bfs\.|readFile|writeFile|\bopen\s*\(|child_process|\bexec(Sync)?\s*\(|\bspawn\s*\(|os\.(path|system)/i,
+  hasAuth:          /\bauthn\b|\bauthz\b|authenticat|authoriz|\blogin\b|\blogout\b|\bsession\b|\btoken\b|\bjwt\b|oauth|\bpassword\b|credential|permission|\brole\b|\brbac\b|\bacl\b/i,
+  hasCrypto:        /\bcrypto\b|hashlib|bcrypt|scrypt|argon2|\bhmac\b|sha\d{3}|\bmd5\b|cipher|encrypt|decrypt|\bsecrets\b|randomBytes/i,
+  hasInput:         /req\.(body|query|params)|request\.(form|json|args|data)|process\.argv|\binput\s*\(|\bpayload\b|deserialize|JSON\.parse|unmarshal/i,
+  hasHttpEndpoints: /@app\.route|@router\.|(app|router)\.(get|post|put|delete|patch)\s*\(|@(Get|Post|Put|Delete|Patch)Mapping|\bdef\s+(get|post|put|delete|patch)\b/i,
+};
+const SECRET_RULES = new Set(['hardcoded-password', 'hardcoded-api-key', 'aws-access-key', 'private-key-block']);
+const PERF_SIZE_FILES = 5;
+const PERF_SIZE_LINES = 200;
+
 const SKIP_FILE_PATTERNS = [/node_modules/, /dist\//, /\.git\//, /\.min\.\w+$/, /\.(test|spec)\.\w+$/, /__tests__\//, /coverage\//, /\.md$/, /\.lock$/, /fixtures?\//];
 const NOSEC_PATTERNS = [/\/\/\s*nosec/, /#\s*nosec/, /eslint-disable-next-line/];
 
@@ -345,13 +386,14 @@ function scopeMatches(scope, file) {
   return true;
 }
 
-function runAuditPrefilter(files) {
+function runAuditPrefilter(files, sizeInfo) {
   if (skipKinds.has('patterns')) {
     return { skipped: true, reason: 'skipped via --skip', scannedFiles: 0, findings: [], byRule: {}, summary: 'skipped' };
   }
 
   const findings = [];
   let scanned = 0;
+  const scope = Object.fromEntries(Object.keys(SCOPE_MARKERS).map(k => [k, false]));
 
   for (const file of files) {
     if (SKIP_FILE_PATTERNS.some(r => r.test(file))) continue;
@@ -362,10 +404,16 @@ function runAuditPrefilter(files) {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+
+      // Scope detection (always runs, even on nosec lines)
+      for (const [key, re] of Object.entries(SCOPE_MARKERS)) {
+        if (!scope[key] && re.test(line)) scope[key] = true;
+      }
+
       if (NOSEC_PATTERNS.some(r => r.test(line))) continue;
 
-      for (const { rule, regex, severity, scope } of AUDIT_PATTERNS) {
-        if (!scopeMatches(scope, file)) continue;
+      for (const { rule, regex, severity, scope: patScope } of AUDIT_PATTERNS) {
+        if (!scopeMatches(patScope, file)) continue;
         if (regex.test(line)) {
           const match = line.trim().slice(0, 100);
           findings.push({ rule, severity, file, line: i + 1, match });
@@ -383,7 +431,45 @@ function runAuditPrefilter(files) {
     ? 'No mechanical findings'
     : `${findings.length} mechanical finding${findings.length > 1 ? 's' : ''} (${p0} P0, ${p1} P1)`;
 
-  return { scannedFiles: scanned, findings, byRule, summary };
+  scope.hasSecrets = findings.some(f => SECRET_RULES.has(f.rule));
+  const { filesChanged = 0, linesChanged = null } = sizeInfo || {};
+  // Unknown size (null) is treated as "large" so we never under-dispatch.
+  const big = linesChanged == null || linesChanged >= PERF_SIZE_LINES || filesChanged >= PERF_SIZE_FILES;
+  // If nothing was scanned, detection is inconclusive → dispatch everything.
+  const inconclusive = scanned === 0;
+
+  const gating = {
+    // Async/Concurrency reviewer (Reviewer 4) — SAFE-tier gate (auto).
+    async_concurrency: inconclusive || scope.hasAsync,
+    // Performance/Architecture reviewer (Reviewer 5) — SAFE-tier gate (auto).
+    performance_arch: inconclusive || (big && (scope.hasDb || scope.hasNetwork || scope.hasLoops || scope.hasMemory)),
+    // Security reviewer (Reviewer 2) — only consulted when the AGGRESSIVE opt-in
+    // flag is enabled; default behavior always dispatches Security.
+    security: inconclusive || scope.hasAuth || scope.hasCrypto || scope.hasInput || scope.hasIO || scope.hasHttpEndpoints || scope.hasSecrets || p0 > 0,
+  };
+  // Reviewers 1 (Business) and 3 (Edge Cases) are never gated.
+  const dispatch = {
+    business_logic: true,
+    security: true, // default; aggressive opt-in overrides with gating.security
+    edge_cases: true,
+    async_concurrency: gating.async_concurrency,
+    performance_arch: gating.performance_arch,
+  };
+  const skipped = Object.entries(dispatch).filter(([, v]) => !v).map(([k]) => k);
+
+  return {
+    scannedFiles: scanned,
+    size: { filesChanged, linesChanged },
+    findings,
+    byRule,
+    summary,
+    scope,
+    gating,
+    dispatch,
+    gatingNote: skipped.length
+      ? `Scope gating: skip ${skipped.join(', ')} (no matching markers). Security gating (aggressive opt-in only): ${gating.security ? 'dispatch' : 'skippable'}.`
+      : 'Scope gating: all auto-gated reviewers in scope — dispatch full panel.',
+  };
 }
 
 // --- Verdict helpers ---
@@ -461,7 +547,8 @@ switch (subcommand) {
   case 'audit-prefilter': {
     const startCommit = getStartCommit();
     const files = getChangedFiles(startCommit);
-    const result = runAuditPrefilter(files.length ? files : walkAllFiles('.'));
+    const stat = getDiffStat(startCommit);
+    const result = runAuditPrefilter(files.length ? files : walkAllFiles('.'), stat);
 
     if (jsonMode) {
       console.log(JSON.stringify(result, null, 2));
@@ -473,6 +560,13 @@ switch (subcommand) {
         for (const f of result.findings) {
           console.log(`  [${f.severity}] ${f.rule} — ${f.file}:${f.line}: ${f.match}`);
         }
+      }
+      if (result.dispatch) {
+        const run = Object.entries(result.dispatch).filter(([, v]) => v).map(([k]) => k);
+        const skip = Object.entries(result.dispatch).filter(([, v]) => !v).map(([k]) => k);
+        console.log(`\nReviewer dispatch: ${run.join(', ')}`);
+        if (skip.length) console.log(`Skippable (auto): ${skip.join(', ')}`);
+        console.log(`Security (aggressive opt-in only) in scope: ${result.gating.security}`);
       }
     }
     process.exit(result.findings.filter(f => f.severity === 'P0').length > 0 ? 1 : 0);

@@ -16,39 +16,34 @@ Conduct a thorough code audit using 5 parallel specialist reviewers, each with a
 Always run this step first. Compaction may have removed earlier context.
 
 1. Run `node scripts/mission-state.mjs status` — confirm you're in the Audit phase
-2. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, and the approved plan
+2. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, and the approved plan
 3. Collect the list of files changed during the Implement phase
-3. **If `secondBrain` is set:**
-   - Read `.vault-index.json` — find any prior decision records or architecture notes related to changed files
-   - Pass relevant vault context to the Business Logic reviewer (so it can check against documented decisions, not just the current spec)
-   - After audit, scan changed files for new TODO/FIXME and include count in the audit report
 
-### Step 0.5: Mechanical Pre-Filter
+### Step 0.5: Mechanical Pre-Filter & Scope Gating
 
 Run the pattern detector before spawning reviewers:
 
     node ~/.claude/skills/mission/scripts/mission-checks.mjs audit-prefilter --json
 
-The output lists pre-detected findings (hardcoded secrets, debugger statements, eval, console.log). Pass the JSON `findings` array verbatim into each reviewer's prompt under a section titled "Pre-detected mechanical findings — do NOT re-detect these, but you may dispute or downgrade them".
+The output has two parts:
+
+1. **`findings`** — pre-detected issues (hardcoded secrets, debugger statements, eval, console.log). Pass the `findings` array verbatim into each reviewer's prompt under a section titled "Pre-detected mechanical findings — do NOT re-detect these, but you may dispute or downgrade them".
+2. **`scope` / `size` / `dispatch` / `gating`** — a conservative scan of the changed files. `dispatch` tells you which reviewers are in scope (booleans for `async_concurrency` and `performance_arch`; `business_logic`, `security`, `edge_cases` are always `true` by default). The detector **biases toward over-dispatching** — when it can't tell (no files scanned, unknown diff size), every gate returns `true`. A skipped reviewer simply produces no score entry, which is gamification-safe (the streak only resets if a scoring *phase* logs zero scores, not an individual reviewer).
 
 ### Step 1: Parallel Specialist Review
 
-Launch **5 read-only reviewer subagents in parallel**. Pass each the changed file list, mission description, and the approved plan's validation assertions.
+Launch the **in-scope read-only reviewer subagents in parallel** (up to 5). Use the prefilter's `dispatch` map from Step 0.5 to decide:
+- **Reviewer 1 (Business Logic)**, **Reviewer 2 (Security)**, **Reviewer 3 (Edge Cases)** — always dispatch (default). (Reviewer 2 can be gated only under the aggressive opt-in in `references/protocol-audit-aggressive.md`.)
+- **Reviewer 4 (Async & Concurrency)** — dispatch only if `dispatch.async_concurrency` is `true`.
+- **Reviewer 5 (Performance & Architecture)** — dispatch only if `dispatch.performance_arch` is `true`.
+
+When in doubt, dispatch — the cost of an unneeded reviewer is small; the cost of a missed bug is not. Pass each reviewer the changed file list, mission description, and the approved plan's validation assertions.
+
+> **Opt-in token modes:** if `optimizations.gateSecurityReviewer` or `optimizations.microMissionMode` is set in state, also apply `references/protocol-audit-aggressive.md` (Security gating / micro-mission consolidation). Both are **off** unless explicitly enabled — default behavior dispatches the full default panel.
 
 > **Dispatch note:** Use your tool's read-only/exploration subagent mechanism for all reviewers. Claude Code: `subagent_type: "Explore"`; Codex/OpenCode/Amp: use equivalent read-only agent mode. Pass the role-specific model from `modelAssignment`.
 
-Before dispatching each reviewer, fetch class lessons. Reviewer-1 (Cleric):
-```bash
-LESSONS=$(node "$MISSION_SCRIPT" lessons Cleric)
-```
-Reviewer-2 (Rogue): `lessons Rogue` · Reviewer-3 (Ranger): `lessons Ranger` · Reviewers 4-5 (Druid): `lessons Druid`
-
-If `LESSONS` is not `[]`, prepend to that reviewer's prompt:
-```
-Lessons from prior missions (this class has been underperforming recently):
-- <lesson.text>
-Keep them in mind, but focus on the review at hand.
-```
+Before dispatching each reviewer, fetch its class lessons and (if non-empty) prepend them — see `references/protocol-lessons-fetch.md` for the prepend format. Classes: Reviewer-1 `lessons Cleric` · Reviewer-2 `lessons Rogue` · Reviewer-3 `lessons Ranger` · Reviewers 4–5 `lessons Druid`.
 
 **Reviewer 1 — Business Logic**
 Dispatch with `model: <modelAssignment.business_reviewer>`.
@@ -115,7 +110,7 @@ For each issue: quote code, describe the exact input that triggers the bug, clas
 Pre-detected mechanical findings (already logged, do not re-report unless disputing severity): [paste prefilter JSON.findings]
 ```
 
-**Reviewer 4 — Async & Concurrency**
+**Reviewer 4 — Async & Concurrency** *(dispatch only if `dispatch.async_concurrency` is true)*
 Dispatch with `model: <modelAssignment.reviewer>`.
 ```
 Mission: "[description]"
@@ -136,7 +131,7 @@ For each issue: quote code, describe the timing/ordering that triggers the bug, 
 Pre-detected mechanical findings (already logged, do not re-report unless disputing severity): [paste prefilter JSON.findings]
 ```
 
-**Reviewer 5 — Performance & Architecture**
+**Reviewer 5 — Performance & Architecture** *(dispatch only if `dispatch.performance_arch` is true)*
 Dispatch with `model: <modelAssignment.reviewer>`.
 ```
 Mission: "[description]"
@@ -158,7 +153,7 @@ Pre-detected mechanical findings (already logged, do not re-report unless disput
 
 ### Step 1.5 — Score reviewer outputs (batch)
 
-After all reviewer subagents return, score each on 3 dimensions (1–5):
+After all reviewer subagents return, score each on 3 dimensions (1–5). **Only include score entries for reviewers you actually dispatched** — drop the JSON objects for any reviewer skipped by scope gating (the example below shows all 5; trim to match). You may pass raw `{quality,completeness,efficiency}` and let the script derive `composite`/`verdict`:
 - **quality** (findings accuracy/depth), **completeness** (coverage of their lens), **efficiency** (signal-to-noise ratio)
 - composite = quality×0.5 + completeness×0.3 + efficiency×0.2
 - verdict: 4.5+ outstanding · 3.5+ solid · 2.5+ needs_improvement · 1.5+ poor · else failed
@@ -230,10 +225,6 @@ Fix all P0/P1 findings. For each: make the change, verify it, note in report.
 - Every finding MUST have evidence (code snippet). No vague claims.
 - If zero issues found, confirm what was checked and why it's clean.
 - P0/P1 MUST be fixed before proceeding.
-
-## Second Brain
-
-If `secondBrain` is set, write `06-audit-report.md` with all findings, severity, and the coverage matrix. See `references/protocol-second-brain.md`.
 
 ## Phase Transition
 

@@ -19,12 +19,8 @@ Always run this step — even if you think you already know the state. Compactio
 
 1. Run `node scripts/mission-state.mjs status` — confirm you're in the Implement phase
 2. Re-read the project instructions file (`CLAUDE.md`, `AGENTS.md`, `amp.md`, or similar) in the project root
-3. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`, `performanceLog`
+3. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, `failureLog`, `performanceLog`
 4. Review the approved plan from Architect/Review phases
-5. **If `secondBrain` is set:**
-   - Read `.vault-index.json` — check for notes related to the work items (prior implementations, decisions, patterns)
-   - Check `code-todos.md` — any existing TODOs related to files we're about to change? Address them while we're there
-   - Reference vault notes when making implementation decisions
 
 ### Step 1: Choose Execution Strategy
 
@@ -38,16 +34,7 @@ Always run this step — even if you think you already know the state. Compactio
 
 For **parallel/serial subagents**, dispatch each as a general-purpose implementation subagent with `model: <modelAssignment.worker>`:
 
-Before dispatching each Knight (worker), fetch lessons:
-```bash
-LESSONS=$(node "$MISSION_SCRIPT" lessons Knight)
-```
-If `LESSONS` is not `[]`, prepend to that worker's prompt:
-```
-Lessons from prior missions (Knight has been underperforming recently):
-- <lesson.text>
-Keep them in mind, but focus on the work at hand.
-```
+Before dispatching each Knight (worker), fetch and (if non-empty) prepend class lessons — `LESSONS=$(node "$MISSION_SCRIPT" lessons Knight)`. See `references/protocol-lessons-fetch.md` for the prepend format.
 
 **Low autonomy only:** After each work-item commit, prompt the user:
 > "Work item complete: <description>. 👍 ship it, or 👎 redo? (Add a comment after 👎 if helpful)"
@@ -112,7 +99,7 @@ Run the deterministic post-flight script:
 
     node ~/.claude/skills/mission/scripts/mission-checks.mjs post-implement --json
 
-Scoped to files changed by `git diff --name-only`. If `verdict == "fail"`, fix blockers (or revert + report per Failure Handling). Include `todos.items` in the completion report under "Open items". If `secondBrain` is set, also run `/obsidian todo scan` to persist to vault.
+Scoped to files changed by `git diff --name-only`. If `verdict == "fail"`, fix blockers (or revert + report per Failure Handling). Include `todos.items` in the completion report under "Open items".
 
 ### Step 4: Completion Report
 
@@ -151,10 +138,6 @@ If a work item fails (tests don't pass, implementation hits a dead end, or an un
 3. Do NOT silently skip to the next work item or phase
 
 The **orchestrator** (the `/mission` command) owns all retry and escalation decisions. See "Orchestrator Failure & Handoff Loop" in SKILL.md. Subagents just report success or failure — they don't count attempts, escalate, or trigger handoffs.
-
-## Second Brain
-
-If `secondBrain` is set, append to `04-implementation-log.md` as each work item completes. For significant trade-off decisions, create `decisions/decision-NNN.md`. See `references/protocol-second-brain.md`.
 
 ## Phase Transition
 

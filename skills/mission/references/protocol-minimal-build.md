@@ -16,19 +16,10 @@ You are in the **BUILD** phase of a minimal mission. This phase combines impleme
 **Step 0 — Load Context (compaction-safe).** Always run first:
 1. Run `node scripts/mission-state.mjs status` — confirm you're in the Build phase
 2. Re-read the project instructions file (`CLAUDE.md`, `AGENTS.md`, `amp.md`, or similar) in the project root
-3. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, `secondBrain`, `failureLog`
+3. Read `.missions/active-mission.json` — get `modelAssignment`, `constraints`, `failureLog`
 4. If 3+ independent work items, dispatch parallel subagents with `model: modelAssignment.worker`
 
-Before dispatching each Knight (worker), fetch lessons:
-```bash
-LESSONS=$(node "$MISSION_SCRIPT" lessons Knight)
-```
-If `LESSONS` is not `[]`, prepend to the worker's prompt:
-```
-Lessons from prior missions (Knight has been underperforming recently):
-- <lesson.text>
-Keep them in mind, but focus on the work at hand.
-```
+Before dispatching each Knight (worker), fetch and (if non-empty) prepend class lessons — `LESSONS=$(node "$MISSION_SCRIPT" lessons Knight)`. See `references/protocol-lessons-fetch.md` for the prepend format.
 
 For each work item from the plan:
 
@@ -111,10 +102,6 @@ If a work item fails:
 3. Do NOT silently skip or move to Verify
 
 The **orchestrator** owns all retry and escalation decisions — see "Orchestrator Failure & Handoff Loop" in SKILL.md.
-
-## Second Brain
-
-If `secondBrain` is set, write `04-implementation-log.md` with what was built and test results. For significant decisions, create `decisions/decision-NNN.md`. See `references/protocol-second-brain.md`.
 
 ## Phase Transition
 

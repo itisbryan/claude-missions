@@ -56,8 +56,8 @@ The cross-tool profile at `${XDG_CONFIG_HOME:-~/.config}/mission/profile.json` n
   "toolDetectedAt": "<ISO timestamp>",
   "modelDefaults": {
     "claude-code": {
-      "explorer": "claude-haiku-4-5",
-      "planner": "claude-opus-4-7",
+      "explorer": "claude-haiku-4-5-20251001",
+      "planner": "claude-opus-4-8",
       "worker": "claude-sonnet-4-6",
       "business_reviewer": "claude-sonnet-4-6",
       "security_reviewer": "claude-sonnet-4-6",
@@ -73,6 +73,8 @@ The cross-tool profile at `${XDG_CONFIG_HOME:-~/.config}/mission/profile.json` n
 ```
 
 Use `node "$MISSION_SCRIPT" load-model-defaults [--tool <tool>]` to read the map for a tool, and `save-model-defaults '<json>' [--tool <tool>]` to update it.
+
+> **Pin full, dated model IDs** (`claude-haiku-4-5-20251001`, `claude-opus-4-8`, `claude-sonnet-4-6`) rather than short aliases. Aliases and dateless IDs can resolve to a stale snapshot via Claude Code issue #25588 — for a cost-optimizer that matters, because the Scout (explorer) must deterministically land on current Haiku 4.5. For Codex/Amp/OpenCode, use whatever exact identifier your provider pins.
 
 ## AskUserQuestion Fallback
 

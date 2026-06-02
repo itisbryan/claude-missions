@@ -5,7 +5,6 @@ You are validating the mission's deliverables against the defined validation ass
 ## Process
 
 1. **Load the validation contract** — review all assertions from the planning phase
-   - **If `secondBrain` is set:** read `.vault-index.json` and check for any TODO/FIXME items left in changed files. Report unresolved items as part of the verification. Zero FIXMEs required to pass.
 2. **For each assertion**, execute the verification:
    a. Set up any required preconditions (test data, environment state)
    b. Execute the test steps exactly as specified
@@ -71,10 +70,6 @@ If an assertion cannot be tested:
 1. Document why it's blocked
 2. Suggest what would unblock it
 3. Continue with remaining assertions — do not stop the entire verification
-
-## Second Brain
-
-If `secondBrain` is set, write `07-verification-report.md` with assertion results and verdict. Update `_index.md` with final status and completion time. See `references/protocol-second-brain.md`.
 
 ## Phase Transition
 

@@ -12,8 +12,7 @@ flowchart TD
         Q3 --> Q4[Constraints?]
         Q4 --> Q5[Model Assignment?]
         Q5 --> Q6[Checks?]
-        Q6 --> Q7[Second Brain?]
-        Q7 --> ReadClaude[Read CLAUDE.md]
+        Q6 --> ReadClaude[Read CLAUDE.md]
         ReadClaude --> Worktree[Create git worktree]
         Worktree --> State[Write state file]
     end
@@ -30,7 +29,6 @@ flowchart TD
 
     Phase2 -->|changes requested| Phase1
     Phase6 --> Done["🎉 Mission Complete"]
-    Phase6 -->|secondBrain set| Vault["📝 Save to Obsidian vault"]
 
     Pause["⏸ /mission pause"] -.-> Phases
     Skip["/mission skip"] -.-> Phases

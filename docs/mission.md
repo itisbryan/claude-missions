@@ -37,14 +37,16 @@ Choose which Claude model runs each subagent role:
 
 | Role | Default | Used in |
 |---|---|---|
-| Explorer | `haiku` | Architect: 3 parallel discovery agents |
-| Planner | `opus` | Architect: spec writing |
-| Worker | `sonnet` | Implement/Build: parallel code subagents |
-| Business Reviewer | `sonnet` | Audit: spec alignment, business logic |
-| Security Reviewer | `sonnet` | Audit: injection, auth, secrets |
-| Edge Case Reviewer | `sonnet` | Audit: boundaries, nulls, partial failures |
-| Reviewer | `sonnet` | Audit: async/concurrency + performance |
-| Verifier | `sonnet` | Verify: test + lint validation |
+| Explorer | `claude-haiku-4-5-20251001` | Architect: parallel discovery agents (scouting) |
+| Planner | `claude-opus-4-8` | Architect: spec writing |
+| Worker | `claude-sonnet-4-6` | Implement/Build: parallel code subagents |
+| Business Reviewer | `claude-sonnet-4-6` | Audit: spec alignment, business logic |
+| Security Reviewer | `claude-sonnet-4-6` | Audit: injection, auth, secrets |
+| Edge Case Reviewer | `claude-sonnet-4-6` | Audit: boundaries, nulls, partial failures |
+| Reviewer | `claude-sonnet-4-6` | Audit: async/concurrency + performance |
+| Verifier | `claude-sonnet-4-6` | Verify: test + lint validation |
+
+> Defaults are pinned to full, dated model IDs (not `haiku`/`opus`/`sonnet` aliases) so they resolve deterministically — short aliases can land on a stale snapshot (Claude Code issue #25588). These must match `DEFAULT_MODEL_DEFAULTS["claude-code"]` in `skills/mission/scripts/mission-state.mjs`.
 
 ## Autonomy Levels
 
@@ -66,9 +68,8 @@ When you run `/mission <description>`:
 4. **Constraints** — optional boundaries
 5. **Model Assignment** — which model runs each subagent role
 6. **Checks** — test/lint commands (auto-discovered from `package.json` or common binaries; override here or via `active-mission.json`)
-7. **Second Brain** — optional Obsidian vault path
-8. **CLAUDE.md** — project instructions read and passed to all subagents
-9. **Git worktree** — isolated branch created for the mission
+7. **CLAUDE.md** — project instructions read and passed to all subagents
+8. **Git worktree** — isolated branch created for the mission
 
 ## State File
 

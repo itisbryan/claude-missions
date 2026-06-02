@@ -8,18 +8,6 @@ argument-hint: "[description | status | skip | pause | resume | done | reset]"
 
 Orchestrate structured development workflows with distinct phases: plan, review, implement, test, audit, and verify. Each phase has a specialized protocol that controls behavior, ensuring disciplined execution.
 
-## Obsidian Integration
-
-When `secondBrain` is set in the mission state, this skill integrates with the `/obsidian` skill:
-
-- **Architect phase**: reads `.vault-index.json` first to find prior decisions, patterns, and domain knowledge relevant to the mission. References vault notes in the spec.
-- **Implement phase**: checks vault for prior decisions about files being changed. Checks `code-todos.md` for existing TODOs to address. After implementation, runs a TODO scan on changed files.
-- **Audit phase**: passes vault context (prior decisions, architecture notes) to the Business Logic reviewer. Reports leftover TODO/FIXME count.
-- **Verify phase**: checks for zero unresolved FIXMEs as a pass condition.
-- **All phases**: save outputs to the vault (discovery, plan, review notes, implementation log, audit report, verification report, decisions).
-
-**Vault-first rule**: before exploring code for architectural or design questions, search the vault index first — the answer may already be documented.
-
 ## Argument Routing
 
 Parse `$ARGUMENTS` to determine the action:
@@ -119,7 +107,11 @@ Wait for the user's reply. Then:
 - If user replied **this-role-only**: call `save-model-defaults` with only the overridden role(s).
 - If user replied **no** or **defaults** (no overrides): skip the profile write.
 
+> **Model IDs:** Use full, dated model IDs (e.g. `claude-haiku-4-5-20251001`, `claude-opus-4-8`, `claude-sonnet-4-6`) — not short aliases (`haiku`/`opus`/`sonnet`), which can resolve to a stale snapshot (Claude Code issue #25588). The values shown above must match `DEFAULT_MODEL_DEFAULTS["claude-code"]` in `scripts/mission-state.mjs`; keep them in sync when either changes.
+
 > **Note:** Mechanical checks (tests, lint, TODO scan, secret detection) are now run by `scripts/mission-checks.mjs` rather than LLM agents. This saves ~25K tokens per standard mission — the verifier role focuses on reasoning over script output.
+
+> **Optional — aggressive token modes (off by default):** for tight-budget runs the user may opt into extra Audit-phase savings by setting `optimizations: { "gateSecurityReviewer": true, "microMissionMode": true }` in `active-mission.json`. These skip/merge reviewers based on mechanical scope detection and carry real quality risk — only enable when asked, and never `gateSecurityReviewer` on a repo handling auth/PII/payments. See `references/protocol-audit-aggressive.md`. Auto-gating of the Async and Performance reviewers by scope is always on and is safe (it dispatches when uncertain).
 
 **If your tool doesn't have AskUserQuestion** (Codex, OpenCode, etc.): present the defaults as plain text and STOP. Wait for the user to reply ("defaults" or overrides) before continuing.
 
@@ -127,15 +119,6 @@ Wait for the user's reply. Then:
 Ask: "What commands run your tests and linter? (e.g., 'test: pytest, lint: ruff check'). Press enter to auto-detect."
 
 If provided, store as `checks` in the state file: `{ "test": "<cmd>", "lint": "<cmd>" }`. `mission-checks.mjs` reads this first before auto-detection.
-
-**Question 7 — Second Brain (optional):**
-Ask: "Save mission docs to a second brain vault (e.g., Obsidian)? Provide the directory path, or press enter to skip."
-
-If a path is provided:
-- Validate the directory exists
-- Store it as `secondBrain` in the state file
-- Each phase will write its outputs as Obsidian-compatible markdown to `<secondBrain>/missions/<mission-slug>/`
-- See `references/protocol-second-brain.md` for the output format
 
 ### 3. Read Project Instructions & Set Up Worktree
 
@@ -189,84 +172,7 @@ Create the directory `.missions/` if it doesn't exist, then write `active-missio
 ]
 ```
 
-Full state schema:
-```json
-{
-  "description": "<mission description>",
-  "mode": "standard|minimal",
-  "autonomy": "low|medium|high",
-  "template": "feature|bugfix|refactor|investigation|custom",
-  "constraints": "<optional user-supplied constraints, or null>",
-  "checks": { "test": "<test command, or null>", "lint": "<lint command, or null>" },
-  "secondBrain": "<path to vault directory, or null>",
-  "modelAssignment": {
-    "explorer": "haiku",
-    "planner": "opus",
-    "worker": "sonnet",
-    "business_reviewer": "sonnet",
-    "security_reviewer": "sonnet",
-    "edge_case_reviewer": "sonnet",
-    "reviewer": "sonnet",
-    "verifier": "sonnet"
-  },
-  "phases": [ ... ],
-  "performanceLog": [
-    {
-      "agent": "explorer-1",
-      "role": "explorer",
-      "model": "haiku",
-      "phase": "Architect",
-      "task": "description",
-      "scores": { "quality": 4, "completeness": 3, "efficiency": 5, "composite": 3.9 },
-      "verdict": "solid",
-      "feedback": "actionable feedback"
-    }
-  ],
-  "failureLog": [
-    {
-      "workItem": "feature id",
-      "attempts": [
-        { "attempt": 1, "session": 1, "approach": "...", "error": "...", "timestamp": "..." }
-      ],
-      "totalAttempts": 0,
-      "escalatedTo": null,
-      "resolved": false
-    }
-  ],
-  "gamification": {
-    "totalXp": 0,
-    "scoringStreak": 0,
-    "longestStreak": 0,
-    "verdictCounts": { "outstanding": 0, "solid": 0, "needs_improvement": 0, "poor": 0, "failed": 0 },
-    "byRole": {
-      "explorer": { "xp": 0, "runs": 0, "avgComposite": 0, "sumComposite": 0, "class": "Scout" }
-    },
-    "byPhase": {
-      "Architect": { "expected": null, "scored": 0, "xp": 0, "verdicts": [], "party": [] }
-    },
-    "userSignalCounts": { "positive": 0, "negative": 0, "neutral": 0 },
-    "userRating": null
-  },
-  "userSignals": [
-    {
-      "role": "planner",
-      "phase": "Architect",
-      "type": "plan_revision",
-      "delta": -10,
-      "context": "User asked for a different library choice",
-      "timestamp": "2026-04-17T..."
-    }
-  ],
-  "userRating": null,
-  "paused": false,
-  "pauseHistory": [],
-  "progressLog": [
-    { "timestamp": "<now>", "type": "phase_start", "detail": "Mission started — entering <first phase>" }
-  ],
-  "startedAt": "<now>",
-  "completedAt": null
-}
-```
+Beyond `description`, `mode`, `autonomy`, `template`, `constraints`, `checks`, `modelAssignment` (above), and `phases`, the file also carries `performanceLog`, `failureLog`, `gamification`, `userSignals`, `userRating`, `paused`, `pauseHistory`, `progressLog`, `startedAt`, `completedAt`. **You don't hand-author these** — `mission-state.mjs` writes them. See **`references/state-schema.md`** for the full annotated schema.
 
 If a `template` is set, include its constraints in every phase prompt alongside `constraints`. Read `references/templates.md` for the template's phase emphasis and inject the relevant section when entering each phase.
 
@@ -319,9 +225,9 @@ The state file + scripts make the orchestrator resilient to compaction. Even if 
    - **Marker present** → subagent completed normally. Continue to step 3.
    - **Marker absent** → subagent hit context limit mid-task. Handle as context exhaustion (see below) — do NOT log as a failure attempt or burn retry budget.
 3. Evaluate the subagent's output using `references/protocol-scoring.md`
-4. Score quality (1-5), completeness (1-5), efficiency (1-5)
+4. Score quality (1-5), completeness (1-5), efficiency (1-5) — **omit `composite` and `verdict`; the script derives both** (composite = q×0.5 + c×0.3 + e×0.2, verdict from the band). To preview the numbers without touching state, run `mission-state.mjs score-compute '<json>'`.
 5. Write specific, actionable feedback
-6. Log the score: `node ~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'`
+6. Log the score: `node ~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'` (or `score-batch '[...]'` for a whole phase in one call). Raw `{quality,completeness,efficiency}` is enough — no hand-computed composite required.
 7. Clear the checkpoint: `node ~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-clear`
 8. Feed scores into the next subagent's prompt
 
@@ -362,7 +268,7 @@ For each phase:
    - Read the next phase's protocol
 4. Apply autonomy gates:
    - **Low:** After every phase transition, STOP and summarize. Wait for user to say "continue"
-   - **Medium:** After every phase transition, STOP. Output a 3-line progress summary, then explicitly ask: "Ready to enter [next phase]? Reply 'continue' to proceed, or 'pause' to stop." Do NOT proceed until the user replies. (This matches `autonomy-levels.md` — Medium is a hard pause-gate, not a soft one.)
+   - **Medium:** After every phase transition, STOP. Generate the 3-line progress summary with `node ~/.claude/skills/mission/scripts/mission-state.mjs progress-summary` (deterministic — no hand-written prose), present it, then wait. Do NOT proceed until the user replies "continue" (or "pause"). (This matches `autonomy-levels.md` — Medium is a hard pause-gate, not a soft one.)
    - **High:** Continue automatically through all phases
 
 When the final phase completes, set `completedAt` on the mission state and present a final summary.
@@ -402,9 +308,10 @@ Auto-generate handoff.md → Pause mission → Inform user
 
 ### How it works step by step
 
-1. **Before dispatching**, orchestrator reads `failureLog` for this work item:
-   - If total attempts ≥ 6 → HARD STOP, ask user
-   - If attempts this session ≥ 3 → skip to powerful-model escalation
+1. **Before dispatching**, run `node ~/.claude/skills/mission/scripts/mission-state.mjs failure-check "<work item>" --session <n>` — it returns the escalation decision so you never count attempts from memory:
+   - `shouldHardStop: true` (≥6 total attempts across sessions) → HARD STOP, ask user
+   - `shouldEscalate: true` (≥3 attempts this session) → skip to powerful-model escalation
+   - otherwise → spawn a new subagent, feeding the returned `priorFailures` as "do NOT repeat these approaches"
 2. **Orchestrator dispatches a subagent** for the work item
 3. **Subagent returns** success or failure
 4. **Orchestrator receives the result** and decides:
@@ -432,116 +339,20 @@ Subagents do NOT:
 
 ## Lifecycle Commands
 
-### `/mission status`
+Each `/mission <verb>` (from the Argument Routing table) is handled below. Most are script-backed; **read `references/lifecycle-commands.md` for the full step-by-step** before executing the manual path.
 
-1. Read `.missions/active-mission.json`
-2. If no file exists, report "No active mission"
-3. Display:
+| Verb | Script (preferred) | Notes |
+|---|---|---|
+| `status` | `mission-state.mjs status` | formatted status block |
+| `log` | `mission-state.mjs log` | full timeline + phase durations |
+| `pause` | `mission-state.mjs pause` | then stop all mission work |
+| `resume` | `mission-state.mjs resume` | then read the active phase protocol |
+| `skip` | — (manual) | confirm, mark phase skipped, advance |
+| `done` | — (manual) | confirm, mark active done + rest skipped, summarize |
+| `handoff` | — (manual) | write `.missions/handoff.md` (see `protocol-handoff.md`), pause |
+| `reset` | — (manual) | confirm, delete state files |
 
-```
-## Mission: [description]
-**Status:** [IN PROGRESS | PAUSED | COMPLETE]
-**Mode:** [Standard | Minimal] | **Autonomy:** [Low | Medium | High]
-**Elapsed:** [duration since startedAt]
-
-### Phases
-[icon] [emoji] [name] [← CURRENT if active] [duration if completed]
-...
-
-### Recent Activity
-- [last 5 progressLog entries with relative timestamps]
-```
-
-### `/mission skip`
-
-1. Read state, find the active phase
-2. Ask user to confirm: "Skip [phase name]?"
-3. If confirmed:
-   - Set the active phase to `status: "skipped"`, `completedAt: <now>`
-   - Set the next phase to `status: "active"`, `startedAt: <now>`
-   - Add progressLog entry: `{ "type": "phase_complete", "detail": "[phase] skipped" }`
-   - Update Tasks (current to completed, next to in_progress)
-   - Write state
-   - If this was the last phase, mark mission complete
-   - Otherwise, read the next phase's protocol and continue
-
-### `/mission pause`
-
-1. Read state
-2. Set `paused: true`, `pausedAt: <now>`
-3. Add progressLog entry: `{ "type": "mission_pause", "detail": "Mission paused" }`
-4. Write state
-5. Report: "Mission paused. Use `/mission resume` to continue."
-6. Do NOT proceed with any mission work while paused. You may answer questions about the mission.
-
-### `/mission resume`
-
-1. Read state
-2. Set `paused: false`
-3. Move `{ pausedAt, resumedAt: <now> }` to `pauseHistory` array
-4. Add progressLog entry: `{ "type": "mission_resume", "detail": "Mission resumed" }`
-5. Write state
-6. Read the current active phase's protocol and continue execution
-
-### `/mission done`
-
-1. Read state
-2. Ask user to confirm: "Mark mission as complete?"
-3. If confirmed:
-   - Mark the active phase as `done` with `completedAt: <now>`
-   - Mark all remaining pending phases as `skipped`
-   - Set mission `completedAt: <now>`
-   - Add progressLog entry: `{ "type": "mission_complete", "detail": "Mission marked complete by user" }`
-   - Update all Tasks accordingly
-   - Write state
-   - Present a final summary: what was accomplished, phases completed/skipped, total elapsed time
-
-### `/mission log`
-
-1. Read `.missions/active-mission.json`
-2. If no file exists, report "No active mission"
-3. Display the full progress timeline:
-
-```
-## Mission Log: [description]
-Started: [startedAt] | Elapsed: [total duration]
-
-[timestamp] ▶ Mission started
-[timestamp] ✅ Architect complete (Xm Ys)
-[timestamp] ✅ Review Plan complete (Xm Ys)
-[timestamp] ⏸  Mission paused
-[timestamp] ▶  Mission resumed (paused for Xm Ys)
-[timestamp] 🔨 Implement — in progress
-...
-
-### Phase Durations
-- Architect:    Xm Ys
-- Review Plan:  Xm Ys
-- Implement:    in progress (Xm so far)
-- (remaining phases pending)
-```
-
-Compute durations from `startedAt`/`completedAt` on each phase. For the active phase, show elapsed time since `startedAt`.
-
-### `/mission handoff`
-
-Manual escape hatch — force a handoff to a new session. The orchestrator does this automatically when failure escalation is exhausted, but you can also trigger it manually at any time.
-
-1. Read `.missions/active-mission.json`
-2. If no active mission, report "No active mission to hand off"
-3. Generate `.missions/handoff.md` following `references/protocol-handoff.md`
-4. Pause the mission (set `paused: true`)
-5. Add progressLog entry: `{ "type": "mission_handoff", "detail": "Mission handed off (manual)" }`
-6. Write state
-7. Report: "Handoff ready. Run `/mission` in a new session to resume with full context."
-
-### `/mission reset`
-
-1. Read state to confirm a mission exists
-2. Ask user to confirm: "Reset will delete all mission state. Continue?"
-3. If confirmed:
-   - Delete `.missions/active-mission.json` and `.missions/handoff.md` (if exists)
-   - Report: "Mission state cleared."
+All confirmation gates and the exact state mutations are in `references/lifecycle-commands.md`.
 
 ---
 
@@ -571,7 +382,7 @@ Every time the state file is read, validate before proceeding:
 1. **File exists?** If not → "No active mission" (or offer to reconstruct from `handoff.md` if that exists)
 2. **Valid JSON?** If parse fails → report the error, suggest `/mission reset`
 3. **Required fields present?** Check: `description`, `mode`, `phases` (array with ≥1 entry), `autonomy`, `startedAt`. If any missing → report and suggest reset
-4. **modelAssignment complete?** For standard mode, all 8 roles must be present. For minimal, at least `explorer`, `planner`, `worker`, `verifier`. If a role is missing → fill it with the user's balanced/worker model (e.g., `"sonnet"` for Claude, `"gpt-4o"` for OpenAI) as fallback and warn the user
+4. **modelAssignment complete?** For standard mode, all 8 roles must be present. For minimal, at least `explorer`, `planner`, `worker`, `verifier`. If a role is missing → fill it with the user's balanced/worker model (e.g., `"claude-sonnet-4-6"` for Claude, `"gpt-4o"` for OpenAI) as fallback and warn the user
 5. **Exactly one active phase?** If zero → mission may be complete (check `completedAt`) or stuck (suggest reset). If more than one → set the first active one as the real active phase, mark others as pending
 6. **Phase order valid?** Done phases must come before active, active before pending. If out of order → warn and suggest reset
 
@@ -584,16 +395,16 @@ Every time the state file is read, validate before proceeding:
   - `~/.claude/skills/mission/scripts/mission-state.mjs phase-transition` — advance to next phase atomically
   - `~/.claude/skills/mission/scripts/mission-state.mjs pause` / `resume` — toggle pause
   - `~/.claude/skills/mission/scripts/mission-state.mjs log` — full progress timeline
-  - `~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'` — append performance score
+  - `~/.claude/skills/mission/scripts/mission-state.mjs progress-summary [phase]` — 3-line phase-gate summary (Medium autonomy)
+  - `~/.claude/skills/mission/scripts/mission-state.mjs score '<json>'` / `score-batch '[...]'` — append performance score(s); composite + verdict auto-derived from raw dimensions
+  - `~/.claude/skills/mission/scripts/mission-state.mjs score-compute '<json>'` — preview composite/verdict/XP without writing state
   - `~/.claude/skills/mission/scripts/mission-state.mjs failure '<json>'` — append failure log entry
+  - `~/.claude/skills/mission/scripts/mission-state.mjs failure-check "<workItem>" [--session <n>]` — escalation decision (hard-stop / escalate / retry) + prior failures
   - `~/.claude/skills/mission/scripts/mission-state.mjs tokens` — token usage report by phase and role
   - `~/.claude/skills/mission/scripts/mission-state.mjs get <field>` — read a field from state
   - `~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-write '<json>'` — save subagent progress checkpoint
   - `~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-read` — read checkpoint (returns null if none)
   - `~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-clear` — delete checkpoint after successful completion
-  - `~/.claude/skills/obsidian/scripts/todo-scan.mjs [dir] [--vault <path>]` — scan code for TODO/FIXME
-  - `~/.claude/skills/obsidian/scripts/vault-index.mjs <vault-path>` — build vault index
-  - `~/.claude/skills/obsidian/scripts/vault-audit.mjs <vault-path>` — check vault health
 - Each protocol file in `references/` is self-contained with its own completion criteria and phase transition instructions.
 - Never skip the Review/approval gate — it exists to prevent wasted implementation effort.
 - If `handoff.md` exists but state file is missing, offer to reconstruct state from the handoff document or reset.

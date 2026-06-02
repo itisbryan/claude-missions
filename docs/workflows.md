@@ -1,36 +1,22 @@
 # Workflows
 
-## 1. Full mission with vault documentation
+## 1. Full standard mission
 
-The most powerful workflow — run a structured mission and save everything to your second brain.
+The flagship workflow — a structured six-phase feature build.
 
 ```bash
-# First time: set up your vault
-/obsidian config
-# → provide your Obsidian vault path (e.g., ~/Documents/niin2brain)
-
-# Build the vault index so Claude can learn from your existing notes
-/obsidian index
-
-# Start a mission — select a template, set vault as second brain
+# Start a mission — pick a template, accept the model defaults
 /mission build a discount engine for the checkout service
 # → Template: Feature
-# → Second Brain: ~/Documents/niin2brain
-# → Model Assignment: defaults
+# → Model Assignment: defaults (Haiku 4.5 scouting, Sonnet workers/reviewers, Opus planning)
 
 # Claude runs through all 6 phases automatically:
-# 📐 Architect → reads your vault first for prior decisions and patterns
+# 📐 Architect → parallel Haiku scouts map the codebase, then a spec is written
 # 👁️ Review → you approve the plan
 # 🔨 Implement → parallel workers build it
 # 🧪 Test → writes and runs tests
-# 🔍 Audit → 5 specialist reviewers check everything
+# 🔍 Audit → specialist reviewers check everything (Async/Perf gated by scope)
 # ✅ Verify → validates against the spec
-
-# Every phase saves outputs to your vault:
-# vault/missions/build-discount-engine/01-discovery.md
-# vault/missions/build-discount-engine/02-plan.md
-# vault/missions/build-discount-engine/decisions/decision-001.md
-# ...etc
 ```
 
 ## 2. Quick bug fix
@@ -47,17 +33,16 @@ Minimal mode with regression-test-first discipline.
 # ✅ Verify → full test suite + linter
 ```
 
-## 3. Research spike with vault output
+## 3. Research spike
 
-Explore a question and save findings — no production code.
+Explore a question and produce a report — no production code.
 
 ```bash
 /mission evaluate whether we should migrate from Redis to Valkey
 # → Template: Investigation (Minimal mode, High autonomy)
-# → Second Brain: ~/Documents/niin2brain
 
 # Claude explores, writes throwaway code to test hypotheses,
-# then saves a structured report to your vault as a Resource note
+# then presents a structured findings report
 ```
 
 ## 4. Vault-powered development (no mission)
@@ -128,12 +113,6 @@ Keep work items in sync between your codebase and your second brain.
 # Add a quick todo
 /obsidian todo add "review the caching strategy before launch"
 # → Adds to the current project note as a checkbox
-
-# After a mission — implementation phase auto-scans for leftover TODOs
-/mission build a notification system
-# → During Implement phase, after all work items:
-# →   "Found 3 TODOs and 1 FIXME in changed files"
-# →   Auto-saved to vault if secondBrain is set
 ```
 
 ## 7. Index your vault for Claude to learn from

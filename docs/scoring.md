@@ -75,15 +75,6 @@ Run `node scripts/mission-state.mjs tokens` for a report:
 
 **Value** is score-per-token ratio: `great` (> 1.5), `ok` (0.8-1.5), `poor` (< 0.8).
 
-## Vault Dashboard
-
-If `secondBrain` is set, writes `agent-performance.md` to the vault with:
-- Role averages with token budgets
-- Per-phase token breakdown
-- Value analysis (which roles burn tokens for low quality)
-- Model upgrade/downgrade recommendations
-- Recent scores with feedback
-
 ## Gamification
 
 ### XP Formula

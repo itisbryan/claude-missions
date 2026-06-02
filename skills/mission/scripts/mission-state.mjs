@@ -55,6 +55,7 @@ const PERSONAS = {
   business_reviewer:  { class: 'Cleric',  emoji: '📜' },
   edge_case_reviewer: { class: 'Ranger',  emoji: '🎯' },
   reviewer:           { class: 'Druid',   emoji: '🌿' },
+  reviewer_architecture: { class: 'Warden', emoji: '🏯' }, // merged Async+Perf lens (micro-mission opt-in)
   verifier:           { class: 'Paladin', emoji: '🛡️' },
 };
 function personaFor(role) { return PERSONAS[role] || { class: role, emoji: '❓' }; }
@@ -73,6 +74,31 @@ function xpFor(entry) {
   const comp = entry.scores?.composite || 0;
   const v = verdictKey(entry.verdict);
   return Math.round(comp * 10) + (VERDICT_BONUS[v] ?? 0);
+}
+
+// Composite + verdict derivation — single source of truth so the orchestrator
+// never recomputes scoring math by hand (deterministic, zero LLM tokens).
+function compositeOf(s) {
+  const q = Number(s.quality) || 0, c = Number(s.completeness) || 0, e = Number(s.efficiency) || 0;
+  return Math.round((q * 0.5 + c * 0.3 + e * 0.2) * 10) / 10;
+}
+function verdictFromComposite(c) {
+  if (c >= 4.5) return 'outstanding';
+  if (c >= 3.5) return 'solid';
+  if (c >= 2.5) return 'needs_improvement';
+  if (c >= 1.5) return 'poor';
+  return 'failed';
+}
+// Fill composite/verdict from raw dimensions when the caller omits them.
+function normalizeScores(entry) {
+  entry.scores = entry.scores || {};
+  if (entry.scores.composite == null && entry.scores.quality != null) {
+    entry.scores.composite = compositeOf(entry.scores);
+  }
+  if (!entry.verdict && entry.scores.composite != null) {
+    entry.verdict = verdictFromComposite(entry.scores.composite);
+  }
+  return entry;
 }
 
 function defaultGamification() {
@@ -114,8 +140,11 @@ function profilePath() {
 }
 
 const DEFAULT_MODEL_DEFAULTS = {
+  // Pin canonical, dated model IDs. Short aliases (haiku/sonnet/opus) and dateless
+  // IDs can resolve to a stale snapshot via Claude Code issue #25588 — bad for a
+  // cost-optimizer. The Scout (explorer) MUST land on current Haiku 4.5.
   'claude-code': {
-    explorer: 'claude-haiku-4-5', planner: 'claude-opus-4-7', worker: 'claude-sonnet-4-6',
+    explorer: 'claude-haiku-4-5-20251001', planner: 'claude-opus-4-8', worker: 'claude-sonnet-4-6',
     business_reviewer: 'claude-sonnet-4-6', security_reviewer: 'claude-sonnet-4-6',
     edge_case_reviewer: 'claude-sonnet-4-6', reviewer: 'claude-sonnet-4-6', verifier: 'claude-sonnet-4-6',
   },
@@ -230,6 +259,7 @@ function applyScoreEntry(state, entry) {
   state.performanceLog = state.performanceLog || [];
   state.gamification = state.gamification || defaultGamification();
   const g = state.gamification;
+  normalizeScores(entry);
   entry.timestamp = now();
   state.performanceLog.push(entry);
   const xp = xpFor(entry);
@@ -313,7 +343,7 @@ function printScorecard(state, profile) {
 }
 
 const [cmd, ...args] = process.argv.slice(2);
-if (!cmd) { console.log('Commands: status, phase-transition, pause, resume, log, score, score-batch, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults'); process.exit(0); }
+if (!cmd) { console.log('Commands: status, phase-transition, pause, resume, log, progress-summary, score, score-batch, score-compute, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, failure-check, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults'); process.exit(0); }
 
 switch (cmd) {
   case 'status': {
@@ -488,6 +518,90 @@ switch (cmd) {
     writeState(s);
     const batchXp = entries.reduce((a, e) => a + xpFor(e), 0);
     console.log(`Scored ${entries.length} agents · phase XP +${batchXp}`);
+    break;
+  }
+
+  case 'score-compute': {
+    // Pure arithmetic — no state write. Accepts a single object or an array of
+    // {quality, completeness, efficiency, [verdict]} and returns the derived
+    // composite, verdict, verdictEmoji, and xp so the orchestrator never does
+    // the math by hand. Pass the same JSON straight into `score-batch` after.
+    let input;
+    try { input = JSON.parse(args[0] || '{}'); }
+    catch { die('score-compute requires a JSON object or array'); }
+    const list = Array.isArray(input) ? input : [input];
+    const out = list.map((e) => {
+      const scores = e.scores || e;
+      const composite = scores.composite != null ? scores.composite : compositeOf(scores);
+      const verdict = e.verdict || verdictFromComposite(composite);
+      const xp = Math.round(composite * 10) + (VERDICT_BONUS[verdictKey(verdict)] ?? 0);
+      return {
+        agent: e.agent || null,
+        composite,
+        verdict,
+        verdictEmoji: VERDICT_EMOJI[verdictKey(verdict)] || '?',
+        xp,
+        label: `${e.agent ? e.agent + ': ' : ''}${composite}/5 ${VERDICT_EMOJI[verdictKey(verdict)] || ''} ${verdict} (+${xp} XP)`.trim(),
+      };
+    });
+    console.log(JSON.stringify(Array.isArray(input) ? out : out[0], null, 2));
+    break;
+  }
+
+  case 'failure-check': {
+    // Read the failure ledger for a work item and return the escalation decision
+    // so the orchestrator doesn't count attempts from memory (compaction-safe).
+    const workItem = args[0];
+    if (!workItem) die('Usage: mission-state.mjs failure-check "<workItem>" [--session <n>]');
+    const sessionIdx = args.indexOf('--session');
+    const session = sessionIdx !== -1 ? Number(args[sessionIdx + 1]) : null;
+    const s = readState();
+    const entry = (s.failureLog || []).find(f => f.workItem === workItem);
+    const attempts = entry?.attempts || [];
+    const totalAttempts = entry?.totalAttempts ?? attempts.length;
+    const sessionAttempts = session != null
+      ? attempts.filter(a => a.session === session).length
+      : null;
+    const effectiveSession = sessionAttempts != null ? sessionAttempts : totalAttempts;
+    const shouldHardStop = totalAttempts >= 6;
+    const shouldEscalate = !shouldHardStop && effectiveSession >= 3;
+    const result = {
+      workItem,
+      totalAttempts,
+      sessionAttempts,
+      shouldHardStop,
+      shouldEscalate,
+      resolved: entry?.resolved ?? false,
+      escalatedTo: entry?.escalatedTo ?? null,
+      priorFailures: attempts.slice(-6).map(a => ({ attempt: a.attempt ?? null, approach: a.approach ?? null, error: a.error ?? null })),
+      recommendation: shouldHardStop ? 'hard_stop_ask_user'
+        : shouldEscalate ? 'escalate_to_planner_model'
+        : 'retry_with_different_approach',
+    };
+    console.log(JSON.stringify(result, null, 2));
+    break;
+  }
+
+  case 'progress-summary': {
+    // 3-line markdown for Medium-autonomy phase gates — deterministic, no LLM prose.
+    const s = readState();
+    const phases = s.phases || [];
+    const named = args[0];
+    let target = named
+      ? phases.find(p => p.name === named)
+      : [...phases].reverse().find(p => p.status === 'done');
+    if (!target) target = phases.find(p => p.status === 'active') || phases[0];
+    const idx = phases.indexOf(target);
+    const next = phases.slice(idx + 1).find(p => p.status !== 'skipped');
+    const doneCount = phases.filter(p => p.status === 'done').length;
+    const dur = target?.completedAt && target?.startedAt ? ` (${formatDuration(target.startedAt, target.completedAt)})` : '';
+    console.log(`✅ ${target?.name || '?'} complete${dur}`);
+    console.log(`⏱ Mission elapsed ${formatDuration(s.startedAt)} · ${doneCount}/${phases.length} phases done`);
+    if (next) {
+      console.log(`▶ Next: ${next.emoji ? next.emoji + ' ' : ''}${next.name} — reply "continue" to proceed, or "pause" to stop`);
+    } else {
+      console.log('🏁 Final phase — mission complete.');
+    }
     break;
   }
 
@@ -825,6 +939,6 @@ switch (cmd) {
 
   default:
     console.log(`Unknown command: ${cmd}`);
-    console.log('Commands: status, phase-transition, pause, resume, log, score, score-batch, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults');
+    console.log('Commands: status, phase-transition, pause, resume, log, progress-summary, score, score-batch, score-compute, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, failure-check, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults');
     process.exit(1);
 }

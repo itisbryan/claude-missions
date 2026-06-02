@@ -8,12 +8,12 @@
 
 ![claude-missions dungeon banner](assets/dungeon-banner.svg)
 
-A skill bundle for [Claude Code](https://claude.ai/code) — multi-phase mission orchestration + Obsidian second brain integration.
+A skill bundle for [Claude Code](https://claude.ai/code) — multi-phase mission orchestration, plus a standalone Obsidian second-brain skill.
 
 Inspired by [Factory.ai](https://factory.ai)'s Droid system and [pi-missions](https://github.com/itisbryan/pi-missions). See [Inspiration](docs/inspiration.md) for details.
 
 **Three skills, one repo:**
-- **`/mission`** — structured development workflows with parallel subagents, failure escalation, and auto-handoff
+- **`/mission`** — structured development workflows with parallel subagents, failure escalation, and auto-handoff. Token-aware: Haiku 4.5 scouting, scope-gated reviewers, and deterministic script offload (~15–30K saved per standard mission)
 - **`/git-worktree`** — create isolated worktrees with auto-detected dependency install; auto-invoked by `/mission`
 - **`/obsidian`** — read, write, search, and link notes in your Obsidian vault with indexed lookup
 
