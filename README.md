@@ -32,12 +32,13 @@ npx skills add itisbryan/claude-missions@git-worktree
 ## Quick Start
 
 ```bash
-# Set up your vault (optional)
-/obsidian config
-/obsidian index
-
 # Run a mission
 /mission build a REST API for user management
+
+# /obsidian is standalone (not coupled to missions) — use it whenever you like
+/obsidian config
+/obsidian index
+/obsidian search "auth patterns"
 ```
 
 ## Commands
@@ -102,7 +103,8 @@ Test runs, lint, TODO scans, and secret detection are handled by a zero-dependen
 ```bash
 node ~/.claude/skills/mission/scripts/mission-checks.mjs pre-checks --json
 node ~/.claude/skills/mission/scripts/mission-checks.mjs post-implement --json
-node ~/.claude/skills/mission/scripts/mission-checks.mjs audit-prefilter --json
+node ~/.claude/skills/mission/scripts/mission-checks.mjs audit-prefilter --json   # + scope-based reviewer gating
+node ~/.claude/skills/mission/scripts/mission-checks.mjs audit-synthesis --findings a.json,b.json
 ```
 
 Override the discovered test/lint commands during setup (Question 6), or add a `checks` field directly to your `active-mission.json`:
@@ -111,12 +113,31 @@ Override the discovered test/lint commands during setup (Question 6), or add a `
 "checks": { "test": "pytest -x", "lint": "ruff check" }
 ```
 
+## Token Efficiency
+
+The `/mission` skill keeps cost down without sacrificing rigor:
+
+- **Pinned model assignment** — Haiku 4.5 scouts, Sonnet workers/reviewers, Opus planning (canonical dated IDs, configurable per role at setup).
+- **Scope-gated reviewers** — `audit-prefilter` skips the Async/Performance reviewers when the diff has no matching surface (biased to dispatch when uncertain).
+- **Deterministic offload** — scoring math, failure-escalation decisions, progress summaries, and audit synthesis run in scripts (zero tokens), not the LLM.
+- **Size-aware scouting** — 1/2/3 discovery agents by mission scope.
+- **Opt-in tradeoff modes** (off by default, setup Question 7) — Verifier→Haiku, Planner→Sonnet, security-reviewer gating, micro-mission consolidation, JSON audit synthesis. See [`protocol-audit-aggressive.md`](skills/mission/references/protocol-audit-aggressive.md).
+
+## Testing
+
+The mission scripts ship a zero-dependency `node:test` suite (22 tests) covering the scoring/XP contract, input-hardening guardrails (malformed JSON, prototype pollution, git shell-injection), audit synthesis, and state validation.
+
+```bash
+npm test
+```
+
 ## Project Structure
 
 ```
 claude-missions/
 ├── README.md
 ├── CHANGELOG.md
+├── package.json                        # `npm test` → node:test suite
 ├── docs/                               # Documentation
 └── skills/
     ├── git-worktree/                    # /git-worktree skill
@@ -125,10 +146,12 @@ claude-missions/
     │       └── worktree-manager.mjs     # Create/list/cleanup worktrees, auto-install deps
     ├── mission/                         # /mission skill
     │   ├── SKILL.md
-    │   ├── references/
+    │   ├── references/                  # phase protocols, state schema, lifecycle, scoring, etc.
     │   └── scripts/
-    │       ├── mission-state.mjs        # Atomic state operations
-    │       └── mission-checks.mjs       # Deterministic test/lint/audit checks
+    │       ├── mission-state.mjs        # State ops, scoring/XP, model defaults, doctor, parse-usage
+    │       ├── mission-checks.mjs       # Deterministic test/lint/audit checks, scope gating, synthesis
+    │       ├── scripts.test.mjs         # Guardrail + scoring-contract tests
+    │       └── gamification.test.mjs    # XP/streak/profile/lessons tests
     └── obsidian/                        # /obsidian skill
         ├── SKILL.md
         ├── references/
