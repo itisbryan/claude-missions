@@ -13,6 +13,28 @@ const LEGACY_STATE_FILE = '.claude/missions/active-mission.json';
 
 function die(msg) { console.error(`Error: ${msg}`); process.exit(1); }
 
+// Recursively drop prototype-pollution keys from parsed JSON.
+function sanitize(o) {
+  if (Array.isArray(o)) return o.map(sanitize);
+  if (o && typeof o === 'object') {
+    const clean = {};
+    for (const k of Object.keys(o)) {
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+      clean[k] = sanitize(o[k]);
+    }
+    return clean;
+  }
+  return o;
+}
+
+// Parse a JSON CLI argument safely: graceful error on malformed input, sanitized result.
+function parseArg(raw) {
+  let v;
+  try { v = JSON.parse(raw ?? '{}'); }
+  catch { die('Invalid JSON argument — pass a valid JSON object or array.'); }
+  return sanitize(v);
+}
+
 function readState() {
   if (!existsSync(STATE_FILE)) {
     if (existsSync(LEGACY_STATE_FILE)) {
@@ -79,7 +101,8 @@ function xpFor(entry) {
 // Composite + verdict derivation — single source of truth so the orchestrator
 // never recomputes scoring math by hand (deterministic, zero LLM tokens).
 function compositeOf(s) {
-  const q = Number(s.quality) || 0, c = Number(s.completeness) || 0, e = Number(s.efficiency) || 0;
+  const clamp = (n) => Math.min(5, Math.max(1, Number(n) || 1)); // dims are 1–5
+  const q = clamp(s.quality), c = clamp(s.completeness), e = clamp(s.efficiency);
   return Math.round((q * 0.5 + c * 0.3 + e * 0.2) * 10) / 10;
 }
 function verdictFromComposite(c) {
@@ -500,7 +523,7 @@ switch (cmd) {
   }
 
   case 'score': {
-    const entry = JSON.parse(args[0] || '{}');
+    const entry = parseArg(args[0]);
     const s = readState();
     applyScoreEntry(s, entry);
     writeState(s);
@@ -606,7 +629,7 @@ switch (cmd) {
   }
 
   case 'user-signal': {
-    const entry = JSON.parse(args[0] || '{}');
+    const entry = parseArg(args[0]);
     if (!entry.type) die('user-signal requires a type field');
     const s = readState();
     s.gamification = s.gamification || defaultGamification();
@@ -634,7 +657,7 @@ switch (cmd) {
   }
 
   case 'rate-mission': {
-    const entry = JSON.parse(args[0] || '{}');
+    const entry = parseArg(args[0]);
     const s = readState();
     s.gamification = s.gamification || defaultGamification();
     const ts = now();
@@ -728,7 +751,7 @@ switch (cmd) {
   }
 
   case 'failure': {
-    const entry = JSON.parse(args[0] || '{}');
+    const entry = parseArg(args[0]);
     const s = readState();
     s.failureLog = s.failureLog || [];
     const ts = now();
@@ -834,7 +857,7 @@ switch (cmd) {
   }
 
   case 'checkpoint-write': {
-    const entry = JSON.parse(args[0] || '{}');
+    const entry = parseArg(args[0]);
     if (!entry.workItem) die('checkpoint-write requires a workItem field');
     const checkpoint = {
       workItem: entry.workItem,
@@ -924,9 +947,7 @@ switch (cmd) {
   }
 
   case 'save-model-defaults': {
-    let map;
-    try { map = JSON.parse(args[0] || '{}'); }
-    catch { die('save-model-defaults requires a JSON object as first argument'); }
+    const map = parseArg(args[0]);
     const toolIdx = args.indexOf('--tool');
     const profile = readProfile();
     const tool = toolIdx !== -1 ? args[toolIdx + 1] : (profile.detectedTool || 'claude-code');

@@ -120,18 +120,18 @@ if (hasFlag('--print-config')) {
 
 // --- Git changed files ---
 
+// Run git with an argv array (NO shell) so a malicious ref can't inject commands.
+function gitLines(args) {
+  const r = spawnSync('git', args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+  if (r.status !== 0 || !r.stdout) return null;
+  return r.stdout.trim().split('\n').filter(Boolean);
+}
+
 function getChangedFiles(since) {
   if (filesFlag) return filesFlag.split(',').map(f => f.trim()).filter(Boolean);
-  try {
-    const ref = since || sinceFlag || 'HEAD~1';
-    const out = execSync(`git diff --name-only ${ref}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-    return out.trim().split('\n').filter(Boolean).filter(f => existsSync(f));
-  } catch {
-    try {
-      const out = execSync('git diff --name-only HEAD', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-      return out.trim().split('\n').filter(Boolean).filter(f => existsSync(f));
-    } catch { return []; }
-  }
+  const ref = since || sinceFlag || 'HEAD~1';
+  const lines = gitLines(['diff', '--name-only', ref]) || gitLines(['diff', '--name-only', 'HEAD']) || [];
+  return lines.filter(f => existsSync(f));
 }
 
 // --- Diff size (for scope-based reviewer gating) ---
@@ -141,19 +141,16 @@ function getDiffStat(since) {
     // Explicit file list: count is known, line delta is not — treat as unknown.
     return { filesChanged: filesFlag.split(',').map(f => f.trim()).filter(Boolean).length, linesChanged: null };
   }
-  try {
-    const ref = since || sinceFlag || 'HEAD~1';
-    const out = execSync(`git diff --numstat ${ref}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-    let files = 0, lines = 0;
-    for (const row of out.trim().split('\n').filter(Boolean)) {
-      const [add, del] = row.split('\t');
-      files++;
-      lines += (parseInt(add, 10) || 0) + (parseInt(del, 10) || 0);
-    }
-    return { filesChanged: files, linesChanged: lines };
-  } catch {
-    return { filesChanged: 0, linesChanged: null };
+  const ref = since || sinceFlag || 'HEAD~1';
+  const rows = gitLines(['diff', '--numstat', ref]);
+  if (!rows) return { filesChanged: 0, linesChanged: null };
+  let files = 0, lines = 0;
+  for (const row of rows) {
+    const [add, del] = row.split('\t');
+    files++;
+    lines += (parseInt(add, 10) || 0) + (parseInt(del, 10) || 0);
   }
+  return { filesChanged: files, linesChanged: lines };
 }
 
 // --- Start commit from active-mission.json ---
