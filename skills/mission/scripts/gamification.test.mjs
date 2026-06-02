@@ -107,12 +107,9 @@ test('lessons: add then retrieve', (t) => {
   assert.match(forced, /middleware chain/);
 });
 
-test('bundle scripts parse (git-worktree + obsidian)', () => {
+test('bundle scripts parse (git-worktree)', () => {
   for (const rel of [
     'skills/git-worktree/scripts/worktree-manager.mjs',
-    'skills/obsidian/scripts/vault-index.mjs',
-    'skills/obsidian/scripts/vault-audit.mjs',
-    'skills/obsidian/scripts/todo-scan.mjs',
   ]) {
     const r = spawnSync('node', ['--check', join(ROOT, rel)], { encoding: 'utf8' });
     assert.equal(r.status, 0, `${rel} should parse: ${r.stderr}`);

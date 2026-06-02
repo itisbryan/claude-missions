@@ -6,6 +6,15 @@ All notable changes to claude-missions are documented here.
 
 ## [Unreleased]
 
+### Removed — Obsidian Skill (bundle is now mission + git-worktree)
+
+The `/obsidian` skill is no longer used and has been removed entirely.
+
+- Deleted `skills/obsidian/` and `docs/obsidian.md`.
+- README rebranded to **two skills** (mission + git-worktree): dropped the `/obsidian` command table, install line, Quick Start block, docs-table row, and project-structure entry.
+- Pruned Obsidian-only docs: removed workflows 4/6/7 from `docs/workflows.md` (renumbered), the Vault Index Lookup diagram + vault scripts from `docs/architecture.md`, and the Obsidian comparison rows from `docs/inspiration.md`.
+- Updated `package.json` description and the bundle-parse test (now git-worktree only). TODO/FIXME scanning still runs via `mission-checks.mjs`.
+
 ### Added — Gamification Tests, Audit-Synthesis Wiring & Resume Health-Check
 
 - **Gamification engine tests** (`gamification.test.mjs`, 8 tests): XP math, streak increment/reset on phase transitions, `user-signal` deltas, `rate-mission` bonus distribution, career-profile merge, and lessons capture — plus a parse smoke test for the git-worktree and obsidian scripts. Full suite now 22 tests.

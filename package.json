@@ -2,7 +2,7 @@
   "name": "claude-missions",
   "version": "0.1.0",
   "private": true,
-  "description": "Mission orchestration + Obsidian second-brain skill bundle for Claude Code",
+  "description": "Multi-phase mission orchestration + git-worktree skills for Claude Code",
   "type": "module",
   "scripts": {
     "test": "node --test \"skills/mission/scripts/*.test.mjs\""

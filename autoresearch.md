@@ -18,7 +18,7 @@ Correctness gate: `./autoresearch.checks.sh` (scoring math, gating, parse).
 - `autoresearch_harness.mjs` — may add guardrails (never weaken to game the metric).
 
 ## Off Limits
-- The standalone `/obsidian` skill. The gamification XP/verdict contract (composite=q·.5+c·.3+e·.2, bands, XP formula) — must not change (checks enforce).
+- The gamification XP/verdict contract (composite=q·.5+c·.3+e·.2, bands, XP formula) — must not change (checks enforce).
 
 ## Constraints
 - `./autoresearch.checks.sh` must pass (no scoring/gating regression).

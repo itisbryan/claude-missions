@@ -33,7 +33,6 @@ claude-missions' Verify phase implements assertion-based validation: load the va
 | Closed platform | Open skill for Claude Code, installable via `npx skills add` |
 | Fixed droid types | Configurable model assignment per role |
 | Internal orchestration | Transparent state file + scripts anyone can inspect |
-| — | Obsidian second brain integration |
 | — | Cross-session handoff with failure log |
 | — | Performance scoring with token tracking |
 | — | Compaction-resilient orchestration |
@@ -67,7 +66,6 @@ claude-missions' Verify phase implements assertion-based validation: load the va
 | 3 audit areas | 5 specialist parallel reviewers |
 | — | Failure escalation with Opus debug |
 | — | Auto-handoff across sessions |
-| — | Obsidian vault integration |
 | — | Performance scoring + token tracking |
 | — | TODO scanning and tracking |
 | — | Compaction resilience |

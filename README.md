@@ -8,24 +8,22 @@
 
 ![claude-missions dungeon banner](assets/dungeon-banner.svg)
 
-A skill bundle for [Claude Code](https://claude.ai/code) — multi-phase mission orchestration, plus a standalone Obsidian second-brain skill.
+A skill bundle for [Claude Code](https://claude.ai/code) — multi-phase mission orchestration with isolated git worktrees.
 
 Inspired by [Factory.ai](https://factory.ai)'s Droid system and [pi-missions](https://github.com/itisbryan/pi-missions). See [Inspiration](docs/inspiration.md) for details.
 
-**Three skills, one repo:**
+**Two skills, one repo:**
 - **`/mission`** — structured development workflows with parallel subagents, failure escalation, and auto-handoff. Token-aware: Haiku 4.5 scouting, scope-gated reviewers, and deterministic script offload (~15–30K saved per standard mission)
 - **`/git-worktree`** — create isolated worktrees with auto-detected dependency install; auto-invoked by `/mission`
-- **`/obsidian`** — read, write, search, and link notes in your Obsidian vault with indexed lookup
 
 ## Install
 
 ```bash
-# Install all three skills
+# Install both skills
 npx skills add itisbryan/claude-missions
 
 # Or install one at a time
 npx skills add itisbryan/claude-missions@mission
-npx skills add itisbryan/claude-missions@obsidian
 npx skills add itisbryan/claude-missions@git-worktree
 ```
 
@@ -34,11 +32,6 @@ npx skills add itisbryan/claude-missions@git-worktree
 ```bash
 # Run a mission
 /mission build a REST API for user management
-
-# /obsidian is standalone (not coupled to missions) — use it whenever you like
-/obsidian config
-/obsidian index
-/obsidian search "auth patterns"
 ```
 
 ## Commands
@@ -68,29 +61,12 @@ npx skills add itisbryan/claude-missions@git-worktree
 
 Auto-invoked by `/mission` before Phase 1. Pass `--no-setup` to skip dependency install, or decline via the autonomy question to skip worktree creation entirely.
 
-### /obsidian
-
-| Command | Description |
-|---|---|
-| `/obsidian config` | Set vault path |
-| `/obsidian index` | Build vault index for fast lookup |
-| `/obsidian write <title>` | Create or update a note |
-| `/obsidian read <query>` | Find and display a note |
-| `/obsidian search <query>` | Search vault content |
-| `/obsidian todo` | Show all open items (vault + code) |
-| `/obsidian todo scan` | Scan codebase for TODO/FIXME, save to vault |
-| `/obsidian todo add <item>` | Add a todo to current project |
-| `/obsidian daily` | Append to today's daily note |
-| `/obsidian link <from> <to>` | Add a wikilink between notes |
-| `/obsidian audit` | Check vault health |
-
 ## Documentation
 
 | Doc | What it covers |
 |---|---|
-| [Workflows](docs/workflows.md) | 7 example workflows with full command sequences |
+| [Workflows](docs/workflows.md) | Example workflows with full command sequences |
 | [Mission](docs/mission.md) | Modes, templates, phases, model assignment, autonomy |
-| [Obsidian](docs/obsidian.md) | Vault index, note types, PARA structure, TODO tracking |
 | [Architecture](docs/architecture.md) | Mermaid diagrams: lifecycle, subagents, failure escalation, state |
 | [Scoring & Tokens](docs/scoring.md) | Performance scoring, token tracking, model recommendations |
 | [Failure & Handoff](docs/failure-handoff.md) | Retry escalation, auto-handoff, cross-session continuity |
@@ -144,21 +120,14 @@ claude-missions/
     │   ├── SKILL.md
     │   └── scripts/
     │       └── worktree-manager.mjs     # Create/list/cleanup worktrees, auto-install deps
-    ├── mission/                         # /mission skill
-    │   ├── SKILL.md
-    │   ├── references/                  # phase protocols, state schema, lifecycle, scoring, etc.
-    │   └── scripts/
-    │       ├── mission-state.mjs        # State ops, scoring/XP, model defaults, doctor, parse-usage
-    │       ├── mission-checks.mjs       # Deterministic test/lint/audit checks, scope gating, synthesis
-    │       ├── scripts.test.mjs         # Guardrail + scoring-contract tests
-    │       └── gamification.test.mjs    # XP/streak/profile/lessons tests
-    └── obsidian/                        # /obsidian skill
+    └── mission/                         # /mission skill
         ├── SKILL.md
-        ├── references/
+        ├── references/                  # phase protocols, state schema, lifecycle, scoring, etc.
         └── scripts/
-            ├── vault-index.mjs          # Build .vault-index.json
-            ├── todo-scan.mjs            # Scan code for TODO/FIXME
-            └── vault-audit.mjs          # Check vault health
+            ├── mission-state.mjs        # State ops, scoring/XP, model defaults, doctor, parse-usage
+            ├── mission-checks.mjs       # Deterministic test/lint/audit checks, scope gating, synthesis
+            ├── scripts.test.mjs         # Guardrail + scoring-contract tests
+            └── gamification.test.mjs    # XP/streak/profile/lessons tests
 ```
 
 ## License

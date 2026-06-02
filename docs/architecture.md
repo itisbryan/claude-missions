@@ -111,25 +111,6 @@ flowchart TD
     style Opus fill:#845ef7,color:#fff
 ```
 
-## Vault Index Lookup
-
-```mermaid
-flowchart TD
-    Query["User asks a question"] --> ReadIndex["Read .vault-index.json\n(~2-5K tokens)"]
-    ReadIndex --> Search{"Match by\ntag / title / summary?"}
-
-    Search -->|yes| Found["1-5 matching notes"]
-    Search -->|no| Grep["Fallback: Grep vault"]
-    Grep --> Found
-
-    Found --> ReadNotes["Read only matched notes\n(3-5 Read calls)"]
-    ReadNotes --> Links["Follow [[wikilinks]]\n(1 hop max)"]
-    Links --> Answer["Answer with full context"]
-
-    style ReadIndex fill:#339af0,color:#fff
-    style Answer fill:#51cf66,color:#fff
-```
-
 ## State & Session Continuity
 
 ```mermaid
@@ -159,10 +140,7 @@ User
         ├─→ Scripts (deterministic — no reasoning)
         │     ├── mission-state.mjs
         │     ├── mission-checks.mjs
-        │     ├── worktree-manager.mjs
-        │     ├── vault-index.mjs
-        │     ├── todo-scan.mjs
-        │     └── vault-audit.mjs
+        │     └── worktree-manager.mjs
         ├─→ Subagents (reasoning — no decisions)
         │     ├── Explorer agents (haiku)
         │     ├── Worker agents (sonnet)
