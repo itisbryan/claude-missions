@@ -36,7 +36,7 @@ Launch the selected read-only exploration subagents **in parallel**. Keep prompt
 
 > **Dispatch note:** Use your tool's read-only/exploration subagent mechanism. Claude Code: `subagent_type: "Explore"`; Codex/OpenCode/Amp: use equivalent read-only agent mode. Pass `model: <modelAssignment.explorer>` (canonical Haiku 4.5 by default — see `protocol-cross-tool.md`).
 
-> **Discovery cache (skip duplicate scanning).** When running 2+ scouts, you can avoid each one re-mapping the same tree: dispatch **Agent 1 (Structure) first**, then write its structural findings to `.missions/discovery-index.json` (`{ "tree": [≤2-level dir list], "keyFiles": [...], "stack": [...], "configs": [...] }`). Dispatch the remaining scouts in parallel afterward, telling them to **read `.missions/discovery-index.json` first and skip directories already mapped there**. This trades one scout's latency for reduced duplicate file I/O — worthwhile on token-optimized runs; skip it (run all scouts fully parallel) if latency matters more. Measure before relying on a specific savings number.
+> **Discovery cache (experimental, opt-in — off by default).** When running 2+ scouts, you can avoid each one re-mapping the same tree: dispatch **Agent 1 (Structure) first**, then write its structural findings to `.missions/discovery-index.json` (`{ "tree": [≤2-level dir list], "keyFiles": [...], "stack": [...], "configs": [...] }`). Dispatch the remaining scouts in parallel afterward, telling them to **read `.missions/discovery-index.json` first and skip directories already mapped there**. This trades one scout's latency for reduced duplicate file I/O — worthwhile on token-optimized runs; skip it (run all scouts fully parallel) if latency matters more. Measure before relying on a specific savings number.
 
 Before dispatching each Scout, fetch and (if non-empty) prepend class lessons — `LESSONS=$(node "$MISSION_SCRIPT" lessons Scout)`. See `references/protocol-lessons-fetch.md` for the prepend format.
 
@@ -103,6 +103,8 @@ See `references/protocol-cross-tool.md` for portability conventions.
 Feed prior scores into Step 2's spec-writing context using the feed-forward templates in `protocol-scoring.md`.
 
 ### Step 2: Write the Spec
+
+> **Planner model:** write the spec with `modelAssignment.planner` (Opus by default — reserved for the hardest reasoning). For tight-budget or well-scoped missions you may opt into `claude-sonnet-4-6`; if you do, surface that at the Review Plan gate so the user can approve the trade. Keep Opus for security-sensitive or novel-architecture work.
 
 Using discovery findings, decompose into work items. For each:
 - **Files** — exact paths from discovery

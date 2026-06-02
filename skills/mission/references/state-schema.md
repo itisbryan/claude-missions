@@ -14,7 +14,8 @@ The `phases` array is written at setup (see SKILL.md §4 for the standard/minima
   "checks": { "test": "<test command, or null>", "lint": "<lint command, or null>" },
   "optimizations": {
     "gateSecurityReviewer": false,
-    "microMissionMode": false
+    "microMissionMode": false,
+    "jsonSynthesis": false
   },
   "modelAssignment": {
     "explorer": "claude-haiku-4-5-20251001",

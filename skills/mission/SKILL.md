@@ -120,6 +120,16 @@ Ask: "What commands run your tests and linter? (e.g., 'test: pytest, lint: ruff 
 
 If provided, store as `checks` in the state file: `{ "test": "<cmd>", "lint": "<cmd>" }`. `mission-checks.mjs` reads this first before auto-detection.
 
+**Question 7 — Token modes (optional, default OFF):**
+Ask: "Enable extra token-saving modes? Each trades some audit thoroughness for cost. Press enter to keep all off (recommended)."
+- **Verifier on Haiku** — final Verify gate runs on Haiku 4.5 (it mostly reads scripted check output). Set `modelAssignment.verifier` to `"claude-haiku-4-5-20251001"`.
+- **Planner on Sonnet** — spec written by Sonnet instead of Opus for tight-budget/well-scoped missions. Set `modelAssignment.planner` to `"claude-sonnet-4-6"`.
+- **Gate Security reviewer by scope** — skip it when the diff touches no auth/input/IO/crypto. Set `optimizations.gateSecurityReviewer: true`.
+- **Micro-mission mode** — merge Async+Perf reviewers on tiny diffs. Set `optimizations.microMissionMode: true`.
+- **JSON audit synthesis** — reviewers emit JSON; a script merges/dedups findings. Set `optimizations.jsonSynthesis: true`.
+
+Store enabled flags under `optimizations` and/or the model overrides in `active-mission.json`. **Never enable `gateSecurityReviewer` on a repo handling auth/PII/payments.** Full risk notes: `references/protocol-audit-aggressive.md`. (The Async/Perf scope-gating in the Audit phase is always on and is safe — it dispatches when uncertain.)
+
 ### 3. Read Project Instructions & Set Up Worktree
 
 **Read the project instructions file (if present):**
@@ -400,7 +410,9 @@ Every time the state file is read, validate before proceeding:
   - `~/.claude/skills/mission/scripts/mission-state.mjs score-compute '<json>'` — preview composite/verdict/XP without writing state
   - `~/.claude/skills/mission/scripts/mission-state.mjs failure '<json>'` — append failure log entry
   - `~/.claude/skills/mission/scripts/mission-state.mjs failure-check "<workItem>" [--session <n>]` — escalation decision (hard-stop / escalate / retry) + prior failures
+  - `~/.claude/skills/mission/scripts/mission-state.mjs parse-usage '<usage block>'` — extract {totalTokens,toolUses,durationMs} from a subagent usage block
   - `~/.claude/skills/mission/scripts/mission-state.mjs tokens` — token usage report by phase and role
+  - `~/.claude/skills/mission/scripts/mission-state.mjs doctor` — validate state (required fields, one active phase, modelAssignment, phase order)
   - `~/.claude/skills/mission/scripts/mission-state.mjs get <field>` — read a field from state
   - `~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-write '<json>'` — save subagent progress checkpoint
   - `~/.claude/skills/mission/scripts/mission-state.mjs checkpoint-read` — read checkpoint (returns null if none)

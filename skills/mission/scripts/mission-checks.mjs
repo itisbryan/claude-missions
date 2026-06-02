@@ -32,6 +32,7 @@ Subcommands:
   pre-checks         Run tests + lint + TODO scan over the whole project
   post-implement     Same as pre-checks but scoped to git-changed files
   audit-prefilter    Pattern-detect known issues + emit scope-based reviewer gating
+  audit-synthesis    Merge/dedup reviewer JSON findings (--findings a.json,b.json)
 
 Flags:
   --json             Output JSON (default: human-readable)
@@ -469,6 +470,42 @@ function runAuditPrefilter(files, sizeInfo) {
   };
 }
 
+// --- Audit synthesis (deterministic merge of reviewer JSON findings) ---
+
+function severityRank(s) { return ({ P0: 0, P1: 1, P2: 2, P3: 3 })[s] ?? 4; }
+
+function runAuditSynthesis(fileList) {
+  const all = [];
+  for (const fp of fileList) {
+    let parsed;
+    try { parsed = JSON.parse(readFileSync(fp, 'utf8')); } catch { continue; }
+    if (Array.isArray(parsed)) all.push(...parsed);
+    else if (parsed && Array.isArray(parsed.findings)) all.push(...parsed.findings);
+  }
+  const merged = new Map();
+  for (const f of all) {
+    if (!f || typeof f !== 'object') continue;
+    const file = f.file || '?';
+    const line = f.line ?? '';
+    const sev = f.severity || 'P3';
+    const tag = String(f.rule || f.title || f.issue || '').slice(0, 40).toLowerCase();
+    const key = `${file}:${line}:${tag}`;
+    const ex = merged.get(key);
+    if (!ex) {
+      merged.set(key, { ...f, severity: sev, reviewers: f.reviewer ? [f.reviewer] : [] });
+    } else {
+      if (severityRank(sev) < severityRank(ex.severity)) ex.severity = sev; // keep highest
+      if (f.reviewer && !ex.reviewers.includes(f.reviewer)) ex.reviewers.push(f.reviewer);
+    }
+  }
+  const findings = [...merged.values()].sort(
+    (a, b) => severityRank(a.severity) - severityRank(b.severity) || String(a.file).localeCompare(String(b.file))
+  );
+  const counts = { P0: 0, P1: 0, P2: 0, P3: 0 };
+  for (const f of findings) counts[f.severity] = (counts[f.severity] || 0) + 1;
+  return { findings, counts, total: findings.length };
+}
+
 // --- Verdict helpers ---
 
 function computeVerdict(tests, lint, todos, mode) {
@@ -568,6 +605,22 @@ switch (subcommand) {
     }
     process.exit(result.findings.filter(f => f.severity === 'P0').length > 0 ? 1 : 0);
     break;
+  }
+  case 'audit-synthesis': {
+    const list = (flag('--findings') || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!list.length) { console.error('audit-synthesis requires --findings <file1,file2,...>'); process.exit(1); }
+    const result = runAuditSynthesis(list);
+    if (jsonMode) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      const c = result.counts;
+      console.log(`Synthesized ${result.total} findings — P0 ${c.P0}, P1 ${c.P1}, P2 ${c.P2}, P3 ${c.P3}`);
+      for (const f of result.findings) {
+        const who = f.reviewers?.length ? ` (${f.reviewers.join(', ')})` : '';
+        console.log(`  [${f.severity}] ${f.file}:${f.line ?? '?'} — ${f.issue || f.rule || f.title || ''}${who}`);
+      }
+    }
+    process.exit(result.counts.P0 > 0 ? 1 : 0);
   }
   default: {
     console.error(`Unknown subcommand: ${subcommand}`);

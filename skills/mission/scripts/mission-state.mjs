@@ -366,7 +366,7 @@ function printScorecard(state, profile) {
 }
 
 const [cmd, ...args] = process.argv.slice(2);
-if (!cmd) { console.log('Commands: status, phase-transition, pause, resume, log, progress-summary, score, score-batch, score-compute, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, failure-check, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults'); process.exit(0); }
+if (!cmd) { console.log('Commands: status, phase-transition, pause, resume, log, progress-summary, score, score-batch, score-compute, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, failure-check, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults, parse-usage, doctor'); process.exit(0); }
 
 switch (cmd) {
   case 'status': {
@@ -536,6 +536,7 @@ switch (cmd) {
     try { entries = JSON.parse(args[0] || '[]'); }
     catch { die('score-batch requires a JSON array'); }
     if (!Array.isArray(entries)) die('score-batch requires an array');
+    if (entries.length > 1000) die('score-batch array too large (max 1000 entries)');
     const s = readState();
     for (const entry of entries) applyScoreEntry(s, entry);
     writeState(s);
@@ -958,8 +959,53 @@ switch (cmd) {
     break;
   }
 
+  case 'parse-usage': {
+    // Parse a subagent <usage> block into {totalTokens, toolUses, durationMs}
+    // so token accounting isn't transcribed by hand. Tolerant of label variants.
+    const text = args[0] || '';
+    const grab = (re) => { const m = text.match(re); return m ? parseInt(m[1].replace(/,/g, ''), 10) : 0; };
+    const usage = {
+      totalTokens: grab(/(?:total_tokens|subagent_tokens|totalTokens|tokens)["\s:=]+(\d[\d,]*)/i),
+      toolUses:    grab(/(?:tool_uses|toolUses|tool_calls)["\s:=]+(\d[\d,]*)/i),
+      durationMs:  grab(/(?:duration_ms|durationMs)["\s:=]+(\d[\d,]*)/i),
+    };
+    console.log(JSON.stringify(usage));
+    break;
+  }
+
+  case 'doctor': {
+    // Programmatic State Validation (mirrors SKILL.md "State Validation").
+    if (!existsSync(STATE_FILE) && !existsSync(LEGACY_STATE_FILE)) {
+      console.log(JSON.stringify({ verdict: 'no_mission', issues: [] }, null, 2));
+      process.exit(0);
+    }
+    let s;
+    try { s = JSON.parse(readFileSync(existsSync(STATE_FILE) ? STATE_FILE : LEGACY_STATE_FILE, 'utf8')); }
+    catch { console.log(JSON.stringify({ verdict: 'corrupt', issues: ['state file is not valid JSON — run /mission reset'] }, null, 2)); process.exit(1); }
+    const issues = [];
+    for (const f of ['description', 'mode', 'autonomy', 'startedAt']) if (s[f] == null) issues.push(`missing required field: ${f}`);
+    if (!Array.isArray(s.phases) || s.phases.length === 0) issues.push('phases must be a non-empty array');
+    else {
+      const active = s.phases.filter(p => p.status === 'active');
+      if (active.length === 0 && !s.completedAt) issues.push('no active phase and mission not complete');
+      if (active.length > 1) issues.push(`${active.length} active phases (expected exactly 1)`);
+      const rank = { done: 0, skipped: 0, active: 1, pending: 2 };
+      let maxSeen = -1, ordered = true;
+      for (const p of s.phases) { const r = rank[p.status] ?? 2; if (r < maxSeen) ordered = false; maxSeen = Math.max(maxSeen, r); }
+      if (!ordered) issues.push('phase order invalid (done/active/pending out of sequence)');
+    }
+    const roles = s.mode === 'minimal'
+      ? ['explorer', 'planner', 'worker', 'verifier']
+      : ['explorer', 'planner', 'worker', 'business_reviewer', 'security_reviewer', 'edge_case_reviewer', 'reviewer', 'verifier'];
+    const ma = s.modelAssignment || {};
+    for (const r of roles) if (!ma[r]) issues.push(`modelAssignment missing role: ${r}`);
+    const verdict = issues.length === 0 ? 'ok' : 'issues';
+    console.log(JSON.stringify({ verdict, issues }, null, 2));
+    process.exit(verdict === 'ok' ? 0 : 1);
+  }
+
   default:
     console.log(`Unknown command: ${cmd}`);
-    console.log('Commands: status, phase-transition, pause, resume, log, progress-summary, score, score-batch, score-compute, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, failure-check, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults');
+    console.log('Commands: status, phase-transition, pause, resume, log, progress-summary, score, score-batch, score-compute, user-signal, rate-mission, lessons, lesson-add, lesson-remove, profile, failure, failure-check, tokens, get, checkpoint-write, checkpoint-read, checkpoint-clear, detect-tool, load-model-defaults, save-model-defaults, parse-usage, doctor');
     process.exit(1);
 }

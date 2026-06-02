@@ -2,6 +2,8 @@
 
 You are validating the mission's deliverables against the defined validation assertions. Every claim must be tested through the real system surface.
 
+> **Model:** any verifier subagent uses `model: <modelAssignment.verifier>` — Sonnet by default. Setting it to Haiku 4.5 (`claude-haiku-4-5-20251001`) is a supported opt-in token saving: this phase mostly reasons over deterministic `mission-checks.mjs` output, so Haiku is usually sufficient. Accept that the final gate is then mechanical-grade rather than adversarial-grade.
+
 ## Process
 
 1. **Load the validation contract** — review all assertions from the planning phase

@@ -92,7 +92,7 @@ tool_uses: 8
 duration_ms: 34200</usage>
 ```
 
-Parse these values and include them in the performance log entry. If usage data is not available (e.g., inline execution), estimate by noting "inline" in the agent field and omit the usage block.
+Extract them deterministically with `node "$MISSION_SCRIPT" parse-usage '<usage block>'` → `{totalTokens, toolUses, durationMs}` (no hand-transcription; tolerant of `total_tokens`/`subagent_tokens`/`tokens` label variants), then include the result as the `usage` field. If usage data is not available (e.g., inline execution), note "inline" in the agent field and omit the usage block.
 
 ### Feedback Field
 

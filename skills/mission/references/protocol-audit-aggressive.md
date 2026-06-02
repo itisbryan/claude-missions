@@ -43,6 +43,16 @@ This one needs no `optimizations` flag; it's a `modelAssignment` override. You *
 - **Do NOT** downgrade `security_reviewer` or the async/perf `reviewer` role: they need semantic code-flow reasoning, and `reviewer` is shared by two lenses, so downgrading would systematically depress Druid-class scores.
 - **Benchmark first:** confirm ≥95% P0/P1 detection parity vs Sonnet on a representative diff before relying on it. Saves ~4–6K per downgraded lens.
 
+## 4. JSON audit synthesis (`jsonSynthesis: true`)
+
+Replace the LLM's manual merge/dedup of audit findings (protocol-audit.md Step 2) with a deterministic script:
+1. Append to each reviewer prompt: *"Output findings as a JSON array, one object per finding: `{rule, severity (P0–P3), file, line, snippet, issue, fix, reviewer}`."*
+2. Step 1.5: write each reviewer's JSON array to `.missions/reviewer-findings-<role>.json`.
+3. New Step 1.6: run `node ~/.claude/skills/mission/scripts/mission-checks.mjs audit-synthesis --json --findings .missions/reviewer-findings-business_logic.json,.missions/reviewer-findings-security.json,…` — it merges by file+line (highest severity wins), dedups, records which reviewers flagged each, and sorts P0→P3. Use its output as the synthesized finding list instead of merging by hand.
+
+- **Saves** the manual synthesis pass (~5–8K/audit) and makes merging deterministic/repeatable.
+- **Risk (medium):** forces reviewers into structured JSON (constrains prose) and assumes the host tool supports JSON subagent output. Touches all reviewer prompts — roll out together.
+
 ---
 
 ## Recording the choice

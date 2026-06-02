@@ -6,6 +6,15 @@ All notable changes to claude-missions are documented here.
 
 ## [Unreleased]
 
+### Added — Tests, Doctor, Token Capture & Opt-in Tradeoff Modes
+
+- **Test suite** (`skills/mission/scripts/scripts.test.mjs`, `node:test`) + `package.json` `test` script (`npm test`) — 14 tests covering the scoring contract, input-hardening guardrails, `audit-synthesis`, `doctor`, and `parse-usage`. `mission-checks.mjs` auto-discovers it via `package.json`.
+- **`mission-state.mjs doctor`** — programmatic State Validation (required fields, exactly one active phase, phase order, complete `modelAssignment`); JSON verdict + nonzero exit on issues.
+- **`mission-state.mjs parse-usage '<block>'`** — extracts `{totalTokens,toolUses,durationMs}` from a subagent usage block (tolerant of label variants) so token accounting isn't transcribed by hand.
+- **`mission-checks.mjs audit-synthesis --findings a.json,b.json`** — deterministic merge/dedup of reviewer JSON findings by file+line (highest severity wins), sorted P0→P3.
+- **`score-batch`** now rejects arrays > 1000 entries (DoS bound).
+- **Opt-in tradeoff modes** (off by default), surfaced as setup Question 7 and documented in `protocol-audit-aggressive.md`: Verifier→Haiku, Planner→Sonnet, `optimizations.jsonSynthesis` (script-side audit synthesis). The discovery-index cache is now explicitly marked experimental/opt-in.
+
 ### Removed — Obsidian / Second-Brain Integration from the Mission Skill
 
 The `/mission` skill no longer integrates with Obsidian. The standalone `/obsidian` skill is unchanged and still shipped in the bundle — only the *coupling* was removed.

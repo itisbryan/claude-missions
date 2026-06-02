@@ -39,7 +39,7 @@ Launch the **in-scope read-only reviewer subagents in parallel** (up to 5). Use 
 
 When in doubt, dispatch — the cost of an unneeded reviewer is small; the cost of a missed bug is not. Pass each reviewer the changed file list, mission description, and the approved plan's validation assertions.
 
-> **Opt-in token modes:** if `optimizations.gateSecurityReviewer` or `optimizations.microMissionMode` is set in state, also apply `references/protocol-audit-aggressive.md` (Security gating / micro-mission consolidation). Both are **off** unless explicitly enabled — default behavior dispatches the full default panel.
+> **Opt-in token modes:** if `optimizations.gateSecurityReviewer`, `optimizations.microMissionMode`, or `optimizations.jsonSynthesis` is set in state, also apply `references/protocol-audit-aggressive.md` (Security gating / micro-mission consolidation / deterministic JSON synthesis via `mission-checks.mjs audit-synthesis`). All are **off** unless explicitly enabled — default behavior dispatches the full default panel and synthesizes findings inline.
 
 > **Dispatch note:** Use your tool's read-only/exploration subagent mechanism for all reviewers. Claude Code: `subagent_type: "Explore"`; Codex/OpenCode/Amp: use equivalent read-only agent mode. Pass the role-specific model from `modelAssignment`.
 
